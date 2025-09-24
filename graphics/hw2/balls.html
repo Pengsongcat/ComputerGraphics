@@ -62,10 +62,12 @@ function Scene() {
       for (int i = 0; i < uSN; i++) {
          vec2 tt = raySphere(P, L, uS[i]);
          if (tt.x < tt.y && tt.x > 0.) {
-            minDist = min(minDist, tt.x);
+            minDist = min(minDist, (tt.y - tt.x) * (tt.y - tt.x));
          }
       }
-      return smoothstep(0.0, 0.3, minDist); 
+      if (minDist == 10000.0)
+          return 0.0; // max shadow distance
+      return minDist; 
    }
 
    vec3 shadeSphere(vec4 S, vec3 P, vec3 C) {
@@ -73,16 +75,12 @@ function Scene() {
 
       vec3 shade = vec3(.1);
 
-      shade *= .5 + .5 * sin(20. * N.y);
+      shade *= .2 + .8 * sin(20. * N.z) * sin(20. * N.y) * sin(20. * N.x);
 
-      // for (int l = 0 ; l < `+NL+` ; l++){
-      //    float shadow = inShadowSoft(P, uL[l]);
-      //    shade += uLC[l] * max(0., dot(N, uL[l])) * (1.0 - shadow);
-      // }
-
-      for (int l = 0 ; l < `+NL+` ; l++)
-         if (! inShadow(P, uL[l]))
-            shade += uLC[l] * max(0., dot(N, uL[l]));
+      for (int l = 0 ; l < `+NL+` ; l++){
+         float shadow = inShadowSoft(P, uL[l]);
+         shade += uLC[l] * max(0., dot(N, uL[l])) * max(0., (1.0 - shadow/0.15));
+      }
 
       return C * shade;
    }
