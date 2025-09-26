@@ -57,7 +57,7 @@ components:
 
 function Scene() {
 
-let NS = 1;
+let NS = 2;
 let NL = 2;
 
 this.vertexShader = `\
@@ -75,11 +75,10 @@ precision highp float;
 uniform float uTime;
 uniform vec3 uViewPoint;
 
-uniform vec3 uC[`+NS+`],
-             uAmbient[`+NS+`],
-	     uDiffuse[`+NS+`],
+uniform vec3 uAmbient[`+NS+`],
+	          uDiffuse[`+NS+`],
              uL[`+NL+`],
-	     uLC[`+NL+`];
+	          uLC[`+NL+`];
 
 uniform vec4 uS[`+NS+`],
              uSpecular[`+NS+`];
@@ -96,13 +95,21 @@ vec2 raySphere(vec3 V, vec3 W, vec4 S) {
    return vec2(-b - sqrt(d), -b + sqrt(d));
 }
 
-/*
+
 vec3 phong(vec3 N, vec3 L, vec3 W,
            vec3 diffuse, vec4 specular) {
 
-   // YOUR CODE GOES HERE.
+   // diffuse - the diffuse color of the surface
+   // specular.rgb - the specular color of the surface
+   // specular.a - the specular power of the surface
+
+   vec3 R = 2. * N * dot(N, L) - L;
+   float highlight_dir = max(0., -dot(R, W));
+   vec3 d = diffuse * max(0., dot(N, L)); 
+   vec3 s = specular.rgb * pow(highlight_dir, specular.a);
+   vec3 c = d + s;
+   return c;
 }
-*/
 
 vec3 shadeSphere(vec4 S, vec3 P, vec3 W,
                  vec3 ambient,
@@ -150,11 +157,18 @@ this.update = viewPoint => {
    setUniform('1f', 'uTime', time);
    setUniform('3fv', 'uViewPoint', viewPoint);
 
-   setUniform('4fv', 'uS', [ 0,0,0,.4 ]);
-
-   setUniform('3fv', 'uAmbient', [ 0,0,.1 ]);
-   setUniform('3fv', 'uDiffuse', [ 0,0,1 ]);
-   setUniform('4fv', 'uSpecular', [ 1,1,1,20 ]);
+   setUniform('4fv', 'uS', [ -0.5,0,0,.4 
+                           , .5,0,0,.4 
+                           ]);
+   setUniform('3fv', 'uAmbient', [ 0,0,.1 
+                                 , .1,.0, 0
+                                 ]);
+   setUniform('3fv', 'uDiffuse', [ 0,0,1 
+                                 , 0.8,0,0 
+                                 ]);
+   setUniform('4fv', 'uSpecular', [ 1,1,1,20 
+                                 , .5,.2,.5,4
+               ]);
 
    setUniform('3fv', 'uL', [
       normalize([(_.x ?? -.35),
