@@ -1,6 +1,7 @@
 <body bgcolor=black>
 <center><canvas id=canvas width=800 height=800></canvas>
 <script src=webgl.js></script>
+<script src=functions.js></script>
 <script>
 
 /**********************************
@@ -116,7 +117,7 @@ void main() {
       if (tQ.x > tI.x) {
          vec3 N = normalQ(uQ[i], V + tQ.x * W);
          color = vec3(.1 + max(0., dot(N, vec3(.5))));
-	 tI.x = tQ.x;
+	      tI.x = tQ.x;
       }
       if (tQ.y < tI.y)
          tI.y = tQ.y;
@@ -163,14 +164,14 @@ this.update = viewPoint => {
    setUniform('1f', 'uTime', time);
    setUniform('3fv', 'uViewPoint', viewPoint);
 
+   // setUniform('Matrix4fv', 'uQ', false,
+   //    qxm(parabX, scale(.3)));
+
    setUniform('Matrix4fv', 'uQ', false,
-      qxm(sphere,scale(.3)));
-/*
-   setUniform('Matrix4fv', 'uQ', false,
-      [ qxm(slabX,mxm(turnY(time),scale(.2))),
-        qxm(slabY,mxm(turnY(time),scale(.2))),
-        qxm(slabZ,mxm(turnY(time),scale(.2))) ].flat());
-*/
+      [ qxm(parabX,mxm(turnY(time),scale(.8))),
+        qxm(tubeY,scale(.4))
+      ].flat());
+
 }
 
 }

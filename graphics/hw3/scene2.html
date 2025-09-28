@@ -57,7 +57,7 @@ components:
 
 function Scene() {
 
-let NS = 2;
+let NS = 4;
 let NL = 2;
 
 this.vertexShader = `\
@@ -157,17 +157,25 @@ this.update = viewPoint => {
    setUniform('1f', 'uTime', time);
    setUniform('3fv', 'uViewPoint', viewPoint);
 
-   setUniform('4fv', 'uS', [ -0.5,0,0,.4 
-                           , .5,0,0,.4 
+   setUniform('4fv', 'uS', [ -0.5,0.5,0,.4,
+                              .5,0.5,0,.4,
+                              -.5,-0.5,0,.4,
+                              .5,-0.5,0,.4,
                            ]);
-   setUniform('3fv', 'uAmbient', [ 0,0,.1 
-                                 , .1,.0, 0
+   setUniform('3fv', 'uAmbient', [ 0,0,.1 , 
+                                 .0,.0, .0,
+                                 .05,.02, .0,
+                                 .1,.4, .9
                                  ]);
    setUniform('3fv', 'uDiffuse', [ 0,0,1 
-                                 , 0.8,0,0 
+                                 , 0.1,.1,.1,
+                                 .2,.1, .0,
+                                 .0,.9, .9
                                  ]);
    setUniform('4fv', 'uSpecular', [ 1,1,1,20 
-                                 , .5,.2,.5,4
+                                 , .6,.6,.9,3
+                                 , .6,.2, .4, 4
+                                 , .9,.9, .9, 7
                ]);
 
    setUniform('3fv', 'uL', [

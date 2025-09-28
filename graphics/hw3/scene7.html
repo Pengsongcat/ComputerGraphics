@@ -1,6 +1,7 @@
 <body bgcolor=black>
 <center><canvas id=canvas width=800 height=800></canvas>
 <script src=webgl.js></script>
+<script src=functions.js></script>
 <script>
 
 /**********************************
@@ -39,7 +40,7 @@ this.fragmentShader = `\
 precision highp float;
 uniform float uTime;
 uniform vec3 uViewPoint;
-uniform mat4 uQ[3];
+uniform mat4 uQ[6];
 
 in  vec3 vPos;
 out vec4 fragColor;
@@ -116,32 +117,31 @@ void main() {
       if (tQ.x > tI1.x) {
          vec3 N = normalQ(uQ[i], V + tQ.x * W);
          color1 = vec3(.1 + max(0., dot(N, vec3(.5))));
-	 tI1.x = tQ.x;
+	      tI1.x = tQ.x;
       }
       if (tQ.y < tI1.y)
          tI1.y = tQ.y;
    }
 
    if (tI1.x > 0. && tI1.x < tI1.y)
-      fragColor = vec4(sqrt(color1), 1.);
-/*
+      fragColor = vec4(vec3(0.9, .4, .8) * sqrt(color1), 1.);
+
    vec3 color2 = vec3(0.);
    vec2 tI2 = vec2(-1.,1000.);
    for (int i = 3 ; i < 6 ; i++) {
       vec2 tQ = findRoots(rayEq(V, W, uQ[i]));
       if (tQ.x > tI2.x) {
          vec3 N = normalQ(uQ[i], V + tQ.x * W);
-         color2 = vec3(.1 + max(0., dot(N, vec3(.5))));
-	 tI2.x = tQ.x;
+         color2 = vec3(.0 + max(0.05, dot(N, vec3(.5))));
+	      tI2.x = tQ.x;
       }
       if (tQ.y < tI2.y)
          tI2.y = tQ.y;
    }
 
-
    if (tI2.x > 0. && tI2.x < tI2.y && tI2.x < tI1.x)
-      fragColor = vec4(sqrt(color2), 1.);
-*/
+      fragColor = vec4(vec3(0, .8, .8) * sqrt(color2), 1.);
+
 }`;
 
 let mxm = (a,b) => {
@@ -183,19 +183,15 @@ this.update = viewPoint => {
    setUniform('3fv', 'uViewPoint', viewPoint);
 
    let m1 = mxm(turnY(time),scale(.2));
-   let m2 = mxm(move(0,0,.5),m1);
+   let m2 = mxm(move(0.1,.5,.8), m1);
+   let m3 = mxm(move(-0.1,-.5,0), m1);
    setUniform('Matrix4fv', 'uQ', false,
-      [ qxm(slabX,m1), qxm(slabY,m1), qxm(slabZ,m1),
-//      qxm(slabX,m2), qxm(tubeX,m2), qxm(space,m2)
+      [ qxm(slabX,m3), qxm(slabY,m3), qxm(slabZ,m3),
+        qxm(slabX,m2), qxm(tubeX,m2), qxm(space,m2)
       ].flat());
 }
 
 }
-
-
-
-
-
 
 
 gl_start(canvas, new Scene());
