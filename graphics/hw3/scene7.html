@@ -4,27 +4,10 @@
 <script src=functions.js></script>
 <script>
 
-/**********************************
-
-Sphere         x*x + y*y + z*z - 1 <= 0
-
-Paraboloid X   x + y*y + z*z <= 0
-Paraboloid Y   x*x + y + z*z <= 0
-Paraboloid Z   x*x + y*y + z <= 0
-
-Slab X         x*x - 1 <= 0
-Slab Y         y*y - 1 <= 0
-Slab Z         z*z - 1 <= 0
-
-Tube X         y*y + z*z - 1 <= 0
-Tube Y         x*x + z*z - 1 <= 0
-Tube Z         x*x + y*y - 1 <= 0
-
-All space      -1 <= 0
-
-**********************************/
-
 function Scene() {
+
+let NGroup = 2;
+let GroupSize = 3;
 
 this.vertexShader = `\
 #version 300 es
@@ -38,9 +21,11 @@ void main() {
 this.fragmentShader = `\
 #version 300 es
 precision highp float;
+
 uniform float uTime;
 uniform vec3 uViewPoint;
-uniform mat4 uQ[6];
+uniform mat4 uQ[`+NGroup*GroupSize+`];
+uniform vec3 uColor[`+NGroup+`];
 
 in  vec3 vPos;
 out vec4 fragColor;
@@ -110,37 +95,30 @@ void main() {
    vec3 V = uViewPoint;
    vec3 W = normalize(vPos-V);
 
-   vec3 color1 = vec3(0.);
-   vec2 tI1 = vec2(-1.,1000.);
-   for (int i = 0 ; i < 3 ; i++) {
-      vec2 tQ = findRoots(rayEq(V, W, uQ[i]));
-      if (tQ.x > tI1.x) {
-         vec3 N = normalQ(uQ[i], V + tQ.x * W);
-         color1 = vec3(.1 + max(0., dot(N, vec3(.5))));
-	      tI1.x = tQ.x;
+   float nearestT = 1000.;
+   vec3 finalColor = vec3(0.);
+
+   for (int g = 0 ; g < `+NGroup+` ; g++){
+      vec3 color = vec3(0.);
+      vec2 tI = vec2(-1.,1000.);
+      for (int i = 0 ; i < `+GroupSize+` ; i++) {
+         int q = g * `+GroupSize+` + i;
+         vec2 tQ = findRoots(rayEq(V, W, uQ[q]));
+         if (tQ.x > tI.x) {
+            vec3 N = normalQ(uQ[q] , V + tQ.x * W);
+            color = vec3(.1 + max(0., dot(N, vec3(.5))));
+            tI.x = tQ.x;
+         }
+         if (tQ.y < tI.y)
+            tI.y = tQ.y;
       }
-      if (tQ.y < tI1.y)
-         tI1.y = tQ.y;
-   }
-
-   if (tI1.x > 0. && tI1.x < tI1.y)
-      fragColor = vec4(vec3(0.9, .4, .8) * sqrt(color1), 1.);
-
-   vec3 color2 = vec3(0.);
-   vec2 tI2 = vec2(-1.,1000.);
-   for (int i = 3 ; i < 6 ; i++) {
-      vec2 tQ = findRoots(rayEq(V, W, uQ[i]));
-      if (tQ.x > tI2.x) {
-         vec3 N = normalQ(uQ[i], V + tQ.x * W);
-         color2 = vec3(.0 + max(0.05, dot(N, vec3(.5))));
-	      tI2.x = tQ.x;
+      if (tI.x > 0. && tI.x < tI.y && tI.x < nearestT) {
+         nearestT = tI.x;
+         finalColor = color * uColor[g];
       }
-      if (tQ.y < tI2.y)
-         tI2.y = tQ.y;
    }
-
-   if (tI2.x > 0. && tI2.x < tI2.y && tI2.x < tI1.x)
-      fragColor = vec4(vec3(0, .8, .8) * sqrt(color2), 1.);
+   
+   fragColor = vec4(sqrt(finalColor), 1.);
 
 }`;
 
@@ -182,13 +160,21 @@ this.update = viewPoint => {
    setUniform('1f', 'uTime', time);
    setUniform('3fv', 'uViewPoint', viewPoint);
 
-   let m1 = mxm(turnY(time),scale(.2));
-   let m2 = mxm(move(0.1,.5,.8), m1);
-   let m3 = mxm(move(-0.1,-.5,0), m1);
-   setUniform('Matrix4fv', 'uQ', false,
-      [ qxm(slabX,m3), qxm(slabY,m3), qxm(slabZ,m3),
-        qxm(slabX,m2), qxm(tubeX,m2), qxm(space,m2)
-      ].flat());
+   let geos = [   [ slabX, slabY, slabZ ],   
+                  [ slabX, tubeX, space ]   
+               ];
+   let transforms = [mxm(move(-0.1, -0.2, 0.4), mxm(turnY(time), scale(.2))), 
+                     mxm(move( 0.1,  0, 0.5), mxm(turnY(time), scale(.2))) 
+                    ];
+   let qArray = new Float32Array(
+      geos.flatMap((geoGroup, g) =>
+         geoGroup.map(geo => qxm(geo, transforms[g]))
+      ).flat()
+   );
+   setUniform('Matrix4fv', 'uQ', false, qArray);
+
+   setUniform('3fv', 'uColor', [ 1,0,0,
+                                 0,1,0 ]);
 }
 
 }
@@ -196,5 +182,3 @@ this.update = viewPoint => {
 
 gl_start(canvas, new Scene());
 </script>
-
-

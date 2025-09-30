@@ -111,16 +111,11 @@ vec3 phong(vec3 N, vec3 L, vec3 W,
    return c;
 }
 
-vec3 shadeSphere(vec4 S, vec3 P, vec3 W,
-                 vec3 ambient,
-                 vec3 diffuse,
-		 vec4 specular) {
+vec3 shadeSphere(vec4 S, vec3 P, vec3 W, vec3 ambient, vec3 diffuse, vec4 specular) {
    vec3 N = (P - S.xyz) / S.w;
    vec3 shade = ambient;
    for (int l = 0 ; l < `+NL+` ; l++)
-      shade += uLC[l] * phong(N, uL[l], W,
-			      diffuse,
-			      specular);
+      shade += uLC[l] * phong(N, uL[l], W, diffuse, specular);
    return shade;
 }
 
@@ -134,11 +129,8 @@ void main() {
       vec2 tt = raySphere(V, W, uS[i]);
       if (tt.x < tt.y && tt.x > 0. && tt.x < t) {
          t = tt.x;
-	 vec3 P = V + t * W;
-         F = vec4(shadeSphere(uS[i], P, W,
-	                      uAmbient[i],
-			      uDiffuse[i],
-			      uSpecular[i]), 1.);
+	      vec3 P = V + t * W;
+         F = vec4(shadeSphere(uS[i], P, W, uAmbient[i], uDiffuse[i], uSpecular[i]), 1.);
       }
    }
 

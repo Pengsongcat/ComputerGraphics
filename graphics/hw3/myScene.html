@@ -1,10 +1,14 @@
-<body bgcolor=black>
+<body bgcolor="#87CEEB">
 <center><canvas id=canvas width=800 height=800></canvas>
 <script src=webgl.js></script>
 <script src=functions.js></script>
 <script>
 
 function Scene() {
+
+let NL = 2;
+let NGroup = 10;
+let GroupSize = 3;
 
 this.vertexShader = `\
 #version 300 es
@@ -18,9 +22,16 @@ void main() {
 this.fragmentShader = `\
 #version 300 es
 precision highp float;
+
 uniform float uTime;
 uniform vec3 uViewPoint;
-uniform mat4 uQ[6];
+
+uniform mat4 uQ[`+NGroup*GroupSize+`];
+// uniform vec3 uColor[`+NGroup+`];
+uniform vec3 uAmbient[`+NGroup+`], uDiffuse[`+NGroup+`];
+uniform vec4 uSpecular[`+NGroup+`];
+
+uniform vec3 uL[`+NL+`], uLColor[`+NL+`];
 
 in  vec3 vPos;
 out vec4 fragColor;
@@ -84,43 +95,75 @@ vec3 normalQ(mat4 Q, vec3 P) {
                          2. * H * P.z + F * P.y + C * P.x + I));
 }
 
+bool inShadow(vec3 P, vec3 L) {
+   for (int g = 0 ; g < `+NGroup+` ; g++){
+      vec2 tI = vec2(-1.,1000.);          // tI: the enter and exit t of group g
+      for (int i = 0 ; i < `+GroupSize+` ; i++) {
+         int q = g * `+GroupSize+` + i;
+         vec2 tQ = findRoots(rayEq(P, L, uQ[q]));
+         if (tQ.x > tI.x)
+            tI.x = tQ.x;
+         if (tQ.y < tI.y)
+            tI.y = tQ.y;
+      }
+      if (tI.x > 0. && tI.x < tI.y) {
+         return true;
+      }
+   }
+   return false;
+}
+
+vec3 phong(vec3 N, vec3 L, vec3 W,
+           vec3 diffuse, vec4 specular) {
+   vec3 R = 2. * N * dot(N, L) - L;
+   float highlight_dir = max(0., -dot(R, W));
+   vec3 d = diffuse * max(0., dot(N, L)); 
+   vec3 s = specular.rgb * pow(highlight_dir, specular.a);
+   vec3 c = d + s;
+   return c;
+}
+
 void main() {
    fragColor = vec4(0.);
 
    vec3 V = uViewPoint;
    vec3 W = normalize(vPos-V);
 
-   vec3 color1 = vec3(0.);
-   vec2 tI1 = vec2(-1.,1000.);
-   for (int i = 0 ; i < 3 ; i++) {
-      vec2 tQ = findRoots(rayEq(V, W, uQ[i]));
-      if (tQ.x > tI1.x) {
-         vec3 N = normalQ(uQ[i], V + tQ.x * W);
-         color1 = vec3(.1 + max(0., dot(N, vec3(.5))));
-	      tI1.x = tQ.x;
+   float nearestT = 1000.;
+   vec3 finalColor = vec3(0.);
+
+   for (int g = 0 ; g < `+NGroup+` ; g++){
+      vec2 tI = vec2(-1.,1000.);          // tI: the enter and exit t of group g
+      vec3 nearestNormal = vec3(0.);      // the nearestNormal at tI.x
+      for (int i = 0 ; i < `+GroupSize+` ; i++) {
+         int q = g * `+GroupSize+` + i;
+         vec2 tQ = findRoots(rayEq(V, W, uQ[q]));
+         if (tQ.x > tI.x) {
+            vec3 N = normalQ(uQ[q] , V + tQ.x * W);
+            nearestNormal = N;
+            tI.x = tQ.x;
+         }
+         if (tQ.y < tI.y)
+            tI.y = tQ.y;
       }
-      if (tQ.y < tI1.y)
-         tI1.y = tQ.y;
-   }
-
-   if (tI1.x > 0. && tI1.x < tI1.y)
-      fragColor = vec4(vec3(0.9, .4, .8) * sqrt(color1), 1.);
-
-   vec3 color2 = vec3(0.);
-   vec2 tI2 = vec2(-1.,1000.);
-   for (int i = 3 ; i < 6 ; i++) {
-      vec2 tQ = findRoots(rayEq(V, W, uQ[i]));
-      if (tQ.x > tI2.x) {
-         vec3 N = normalQ(uQ[i], V + tQ.x * W);
-         color2 = vec3(.0 + max(0.05, dot(N, vec3(.5))));
-	      tI2.x = tQ.x;
+      // if the nearest intersection of group g is the nearest within all groups so far, shade it
+      if (tI.x > 0. && tI.x < tI.y && tI.x < nearestT) {
+         nearestT = tI.x;
+         vec3 shade = uAmbient[g];
+         for (int l = 0 ; l < `+NL+` ; l++){ 
+            vec3 P = V + nearestT * W;
+            bool shadow = inShadow(P, uL[l]);
+            if (! shadow)
+               shade += uLColor[l] * phong(nearestNormal, uL[l], W, uDiffuse[g], uSpecular[g]);
+         } 
+         finalColor = shade;      
       }
-      if (tQ.y < tI2.y)
-         tI2.y = tQ.y;
    }
-
-   if (tI2.x > 0. && tI2.x < tI2.y && tI2.x < tI1.x)
-      fragColor = vec4(vec3(0, .8, .8) * sqrt(color2), 1.);
+   
+   if (finalColor != vec3(0.))
+      fragColor = vec4(sqrt(finalColor), 1.);
+   else
+      fragColor = vec4(0.);
 
 }`;
 
@@ -155,20 +198,90 @@ let qxm = (Q,M) => {
    return mxm(transpose(MI), mxm(Q, MI));
 }
 
+let normalize = v => {
+      let s = Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+      return [ v[0]/s, v[1]/s, v[2]/s ];
+   }
+
 let startTime = Date.now()/1000;
+
+let deg2rad = deg => deg * Math.PI / 180;
 
 this.update = viewPoint => {
    let time = Date.now()/1000 - startTime;
    setUniform('1f', 'uTime', time);
    setUniform('3fv', 'uViewPoint', viewPoint);
 
-   let m1 = mxm(turnY(time),scale(.2));
-   let m2 = mxm(move(0.1,.5,.8), m1);
-   let m3 = mxm(move(-0.1,-.5,0), m1);
-   setUniform('Matrix4fv', 'uQ', false,
-      [ qxm(slabX,m3), qxm(slabY,m3), qxm(slabZ,m3),
-        qxm(slabX,m2), qxm(tubeX,m2), qxm(space,m2)
-      ].flat());
+   setUniform('3fv', 'uL', [  normalize([0.5,1,0.5]),
+                              normalize([Math.sin(time / 5) * 2, 1, Math.cos(time / 5) * 2]),
+                           ].flat());
+   setUniform('3fv', 'uLColor', [   .4,.6,0.2,
+                                    .4,.5,.2,
+                                 ]);
+
+   let geos = [   [ sphere, space, space ],
+                  [ parabY, space, space ],  
+                  [ coneY, slabY, space ],
+                  [ sphere, parabX, space ],
+                  [ sphere, parabX, space ],
+                  [ sphere, parabX, space ],
+                  [ sphere, space, space ],
+                  [ parabY, space, space ],
+
+               ];
+   let transforms = [
+      [ mxm(move(0.4, Math.sin(time * 1.5) / 10 + 0.1, 0.5), scale(.08,.1,.08)) ],
+      [ mxm(move(0., -0.5, 0), mxm(turnX(deg2rad(10)), scale(10.)))],
+      [ mxm(move(.4, 0., 0.5), scale(.2,1.,.2)), mxm(scale(0.8), move(0., -1, 0.),), move(0.,0, 0.)],
+      [ mxm(move(.4, 0.6, 0.5), scale(.4,.8,.4)), mxm(move(.4, Math.sin(time) / 10 - 0.3, 0.5), turnY(time)), move(0., 0., 0.)],
+      [ mxm(move(.4, 0.6, 0.5), scale(.4,.8,.4)), mxm(move(.4, Math.sin(time) / 10 - 0.3, 0.5), turnY(time + 2)), move(0., 0., 0.)],
+      [ mxm(move(.4, 0.6, 0.5), scale(.4,.8,.4)), mxm(move(.4, Math.sin(time) / 10 - 0.3, 0.5), turnY(time + 4)), move(0., 0., 0.)],
+      [ mxm(move(Math.sin(time / 2 + 4) - 0.9, Math.sin(time / 2 + 4) / 2 - 0.4, 0.), mxm(move(-0.3, -.4, 0.8), scale(.14,.12,.14)) )],
+      [ mxm(move(Math.sin(time / 2 + 4) - 0.9, Math.sin(time / 2 + 4) / 2 - 0.4, 0.), mxm(move(-0.3, -.48, 0.75), scale(.1,.05,.08))) ],
+
+   ];
+   let qArray = new Float32Array(
+   geos.flatMap((geoGroup, g) =>
+      geoGroup.map((geo, i) => {
+         let t = Array.isArray(transforms[g])
+                   ? (transforms[g][i] ?? transforms[g][0] ?? identity)
+                   : (transforms[g] ?? identity);
+         return qxm(geo, t);
+      })
+      ).flat()
+   );
+   setUniform('Matrix4fv', 'uQ', false, qArray);
+
+   // setUniform('3fv', 'uColor', [ 0.1,0.7,0.8,
+   //                               0.4,0.6,.5]);
+
+   setUniform('3fv', 'uAmbient', [ 0.02,0.05,.0 , 
+                                 .01,.02, .02,
+                                 .02,.02, .06,
+                                 .04,.02, .02,
+                                 .01,.02, .07,
+                                 .04,.02, .04,
+                                 .1,.2, .2,
+                                 .1,.2, .2
+                                 ]);
+   setUniform('3fv', 'uDiffuse', [ Math.sin(time/2 + 18.9), 0.5 ,0
+                                 , Math.sin(time/2 + 4),.9, Math.sin(time/2 + 4)
+                                 , .2,.9, .4
+                                 , .8,Math.sin(time/2 + 4), .2
+                                 , .8,Math.sin(time/2 + 4), .2
+                                 , .8,Math.sin(time/2 + 4), .2
+                                 , .6,.5, .9
+                                 , .6,.5, .9
+                                 ]);
+   setUniform('4fv', 'uSpecular', [ 1,1,1,20
+                                 , .9,.9, .5, 20
+                                 , .9,.9, .1, 5
+                                 , .8,.1, .9, 20
+                                 , .8,.1, .9, 20
+                                 , .8,.1, .9, 20
+                                 , .8,.4, .9, 4
+                                 , .8,.4, .9, 4
+                                    ]);
 }
 
 }
