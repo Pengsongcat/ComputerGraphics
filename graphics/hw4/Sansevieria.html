@@ -59,29 +59,55 @@ vec3 wood(vec3 pos) {
    return c;
 }
 
+vec3 sansevieria(vec3 pos) {
+   float v = turbulence(pos);
+   pos.y += .08 * fractal(vec3(30. * pos.x, pos.y, pos.z)) + .05 * fractal(vec3(100. * pos.x, pos.y, pos.z));
+   pos.y += .2 * turbulence(3. * pos);
+
+   float pattern = 0.5 + 0.5 * sin(38. * pos.y + 10. * v);
+   pattern = smoothstep(0.1, 0.8, pattern);
+
+   vec3 g1 = vec3(0.04, 0.09, 0.01);
+   vec3 g2 = vec3(0.7, 0.8, 0.2);
+   vec3 c = mix(g1, g2, pattern);
+   c = mix(c, g2, 0.4 * fractal(7.0 * pos));
+   c += 0.28 * fractal(100.0 * pos);
+   
+   return c;
+}
+
+vec3 soil(vec3 pos) {
+
+    float s = abs(sqrt(2. * turbulence(5. * pos)));
+
+    vec3 darkSoil = vec3(0.23, 0.07, 0.01); 
+    vec3 redSoil  = vec3(0.16, 0.04, 0.01);
+    vec3 c = mix(darkSoil, redSoil, s);
+    c = mix(c, vec3(0.07, 0.02, 0.0), 1.2 * noise(40. * pos));
+    c += darkSoil * 0.7 * noise(120. * pos);
+
+    return c;
+}
+
+vec3 oilwater(vec3 pos) {
+   pos.y += .5 * turbulence(5. * pos);
+   float t = .5 + .5 * turbulence(vec3(.5,20.,.5) * pos+2.*sin(pos));        
+   vec3 c = vec3(1.,.42,.15) * mix(1.5, .1, t);
+   // c *= .2 + .8 * pow(abs(sin(10. * pos.y)), .4);
+   return c;
+}
+
 void main() {
    vec4 F = vec4(0.);
    float x = 2. * vPos.x;
    float y = 2. * vPos.y;
-   float rr = x*x + y*y;
-   vec3 ambient = vec3(.1);
-   vec3 diffuse = vec3(.8);
-   vec4 specular = vec4(1.,1.,1.,10.);
-
+   float rr = x*x + y*y; 
    if (rr < 1.) {
       float z = sqrt(1. - rr);
-      vec3 N = vec3(x,y,z);
-      vec3 L1 = normalize(vec3(1.));
-      vec3 R1 = 2. * N * dot(N,L1) - L1;
-      vec3 L2 = normalize(vec3(-1.));
-      vec3 R2 = 2. * N * dot(N,L2) - L2;
-      vec3 c = ambient + diffuse * max(0., dot(L1,N))
-                       + specular.rgb * pow(max(0.,R1.z), specular.a)
-                       + .3*diffuse * max(0., dot(L2,N))
-                       + .3*specular.rgb * pow(max(0.,R2.z), specular.a);
-      vec3 P = vec3(vPos.xy, z);
+      float c = .1 + .5 * max(0., x+y+z);
+      vec3 P = vec3(vPos.x, vPos.y,z);
       P = vPos;
-      F = vec4(c * wood(P),1.);
+      F = vec4(c * soil(P),1.);
    }
    fragColor = vec4(sqrt(F.rgb), F.a);
 }`;
