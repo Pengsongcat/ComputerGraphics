@@ -43,11 +43,12 @@ void main() {
    vec4 F = vec4(0.);
    float x = 2. * vPos.x;
    float y = 2. * vPos.y;
-   float rr = x*x + y*y;
+   float rr = x*x + y*y; 
    if (rr < 1.) {
       float z = sqrt(1. - rr);
       float c = .1 + .5 * max(0., x+y+z);
-      F = vec4(c * marble(vPos),1.);
+      vec3 P = vec3(vPos.x, vPos.y,z);
+      F = vec4(c * marble(P),1.);
    }
    fragColor = vec4(sqrt(F.rgb), F.a);
 }`;
