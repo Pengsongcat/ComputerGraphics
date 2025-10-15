@@ -57,8 +57,8 @@ let torus = (nu,nv,r) => parametric((u,v,r) => {
 
 mesh = {
    triangle_strip: true,
-// data: new Float32Array(torus(30,6,.1)),
-   data: new Float32Array(sphere(20,10)),
+   data: new Float32Array(torus(30,6,.1)),
+   // data: new Float32Array(sphere(20,10)),
 };
 
 this.vertexShader = `\

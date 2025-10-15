@@ -36,6 +36,7 @@ out vec3 vPos, vNor;
 void main() {
    vec4 pos = uMF * vec4(aPos, 1.);
    vec4 nor = vec4(aNor, 0.) * uMI;
+   nor = vec4(aPos, 0.) * uMI;
    gl_Position = pos * vec4(1.,1.,-1.,1.);
    vPos = pos.xyz;
    vNor = nor.xyz;
@@ -57,7 +58,7 @@ let startTime = Date.now()/1000;
 
 this.update = () => {
    let time = Date.now() / 1000 - startTime;
-   let m = mxm(perspective(0,0,-.5),
+   let m = mxm(perspective(0,0,-0.5),
            mxm(turnY(time),
 	       scale(.5)));
    setUniform('Matrix4fv', 'uMF', false, m);

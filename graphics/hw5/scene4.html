@@ -31,15 +31,15 @@ let disk = n => {
       let theta = 2 * Math.PI * i / n
       let c = Math.cos(theta);
       let s = Math.sin(theta);
-      V.push(c,s, 0, 0,0,1);
-      V.push(0,0, 0, 0,0,1);
+      V.push(c,s, 0, 0,0,1);  // rim point
+      V.push(0,0, 0, 0,0,1);  // center
    }
    return V;
 }
 
 mesh = {
   triangle_strip: true,
-  data: new Float32Array(tube(6)),
+  data: new Float32Array(tube(15)),
 };
 
 this.vertexShader = `\

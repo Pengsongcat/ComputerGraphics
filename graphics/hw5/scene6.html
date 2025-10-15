@@ -6,7 +6,7 @@
 // MULTIPLE MESHES IN ONE SCENE
 
 /*
-   Two render multiple meshes, at every animation
+   To render multiple meshes, at every animation
    frame we send the mesh data for each shape down
    to the GPU and then we draw that shape. Those
    steps are handled by function drawMesh(), which
@@ -61,10 +61,10 @@ let torus = (nu,nv,r) => parametric((u,v,r) => {
    
 },nu,nv,r);
 
-mesh = {
-  triangle_strip: true,
-  data: new Float32Array(torus(30,6,.1)),
-};
+// mesh = {
+//   triangle_strip: true,
+//   data: new Float32Array(torus(30,6,.1)),
+// };
 
 this.vertexShader = `\
 #version 300 es
@@ -92,7 +92,7 @@ void main() {
    fragColor = vec4(c, 1.);
 }`;
 
-autodraw = false;
+autodraw = false; // we will call drawMesh() ourselves
 
 let startTime = Date.now()/1000;
 

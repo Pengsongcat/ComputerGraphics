@@ -1,0 +1,398 @@
+<body bgcolor=black>
+<center><canvas id=canvas width=800 height=800></canvas>
+<script src=webgl.js></script>
+<script>
+function Scene() {
+
+let parametric = (f,nu,nv,other) => {
+   let V = [];
+   for (let j = 0 ; j < nv ; j++) {
+      for (let i = 0 ; i <= nu ; i++) {
+         V.push(f(i/nu,j/nv,other));
+         V.push(f(i/nu,(j+1)/nv,other));
+      }
+      V.push(f(1,(j+1)/nv,other));
+      V.push(f(0,(j+1)/nv,other));
+   }
+   return V.flat();
+}
+
+let tube = n => parametric((u,v) => {
+   let theta = 2 * Math.PI * u;
+   let c = Math.cos(theta);
+   let s = Math.sin(theta);
+   return [c,s,2*v-1, c,s,0];
+},n,2);
+
+let disk = n => parametric((u,v) => {
+   let theta = 2 * Math.PI * u;
+   let c = Math.cos(theta);
+   let s = Math.sin(theta);
+   return [c*v,s*v,0, 0,0,1];
+},n,2);
+
+let sphere = (nu,nv) => parametric((u,v) => {
+   let theta = 2 * Math.PI * u;
+   let phi = Math.PI * (v - 1/2);
+   let cu = Math.cos(theta);
+   let su = Math.sin(theta);
+   let cv = Math.cos(phi);
+   let sv = Math.sin(phi);
+   let x = cu * cv, y = su * cv, z = sv;
+   return [x,y,z, x,y,z];
+},nu,nv);
+
+let hemisphere = (nu,nv) => parametric((u,v) => {
+   let theta = 2 * Math.PI * u;
+   let phi = Math.PI/2 * v;
+   let cu = Math.cos(theta);
+   let su = Math.sin(theta);
+   let cv = Math.cos(phi);
+   let sv = Math.sin(phi);
+   let x = cu * cv, y = su * cv, z = sv;
+   return [x,y,z, x,y,z];
+},nu,nv);
+
+let torus = (nu,nv,r) => parametric((u,v,r) => {
+   let theta = 2 * Math.PI * u,
+       cu = Math.cos(theta),
+       su = Math.sin(theta);
+   let phi = 2 * Math.PI * v,
+       cv = Math.cos(phi),
+       sv = Math.sin(phi);
+   return [(1+r*cv)*cu,(1+r*cv)*su,r*sv, cv*cu,cv*su,sv];
+   
+},nu,nv,r);
+
+let tiltTube = (n, r) => parametric((u,v,r) => {
+   let theta = 2 * Math.PI * u;
+   let c = Math.cos(theta);
+   let s = Math.sin(theta);
+   // v = 1 -> z = r
+   // v = 0 -> z = 1
+   let z = 1 - v + v * r;
+   return [z*c,z*s,2*v-1,c,s,0];
+}, n, 2, r); 
+
+
+this.vertexShader = `\
+#version 300 es
+` + noiseCode + `
+uniform mat4 uMF, uMI;
+in  vec3 aPos, aNor;
+out vec3 vPos, vNor;
+void main() {
+   vec4 pos = uMF * vec4(aPos, 1.);
+   vec4 nor = vec4(aNor, 0.) * uMI;
+   gl_Position = pos * vec4(1.,1.,-.1,1.);
+   vPos = pos.xyz;
+   vNor = nor.xyz;
+}`;
+
+this.fragmentShader = `\
+#version 300 es
+precision highp float;
+
+uniform vec3 uViewPoint;
+uniform vec3 uL;
+uniform vec3 uAmbient;
+uniform vec3 uDiffuse;
+uniform vec4 uSpecular;
+uniform float uTime;
+
+in  vec3 vPos, vNor;
+out vec4 fragColor;
+
+float turbulence(vec3 P) {
+   float f = 0., s = 1.;
+   for (int i = 0 ; i < 9 ; i++) {
+      f += abs(noise(s * P)) / s;
+      s *= 2.;
+      P = vec3(.866*P.x + .5*P.z, P.y + 100., -.5*P.x + .866*P.z);
+   }
+   return f;
+}
+
+vec3 oilwater(vec3 pos) {
+   pos.y += .5 * turbulence(0.9 * uTime + 6. * pos);
+   float t = .5 + .5 * turbulence(vec3(.5,20.,.5) * pos+2.*sin(pos));        
+   vec3 c = vec3(0.8,.8,.8) * mix(1.5, .1, t);
+   c *= 1.+ .6 * pow(abs(sin(10. * pos.y)), 10.);
+   return c;
+}
+
+void main() {
+   vec3 nor = normalize(vNor);
+   vec3 W = normalize(vPos - uViewPoint);
+
+   vec3 shade = uAmbient;
+   shade += uL * phong(nor, uL, W, uDiffuse, uSpecular);
+
+   vec3 texture = oilwater(vPos);
+
+   fragColor = vec4(sqrt(shade.rgb), 1.);;
+   fragColor = vec4(shade.rgb * 0.6 + 0.8 * shade.rgb * texture, 1.);
+}`;
+
+autodraw = false;
+
+function Matrix() {
+   let m = [identity()], top = 0;
+   this.push = () => { m[top+1] = m[top].slice(); top++; return this; }
+   this.pop = () => { if (top > 0) top--; return this; }
+   this.get = () => m[top];
+   this.identity = () => { m[top] = identity(); return this; }
+   this.move = (x,y,z) => { m[top]=mxm(m[top],move(x,y,z)); return this; }
+   this.turnX = a => { m[top] = mxm(m[top], turnX(a)); return this; }
+   this.turnY = a => { m[top] = mxm(m[top], turnY(a)); return this; }
+   this.turnZ = a => { m[top] = mxm(m[top], turnZ(a)); return this; }
+   this.scale = (x,y,z) => {
+      m[top] = mxm(m[top], scale(x,y,z));
+      return this;
+   }
+   this.perspective = (x,y,z) => {
+      m[top] = mxm(m[top], perspective(x,y,z));
+      return this;
+   }
+}
+
+let matrix = new Matrix();
+
+let startTime = Date.now()/1000;
+
+let drawMyMesh = (mesh, color) => {
+   setUniform('3fv', 'uColor', color);
+   let m = mxm(perspective(0,0,-.1), matrix.get());
+   setUniform('Matrix4fv', 'uMF', false, m);
+   setUniform('Matrix4fv', 'uMI', false, inverse(m));
+   drawMesh(mesh);
+}
+
+let drawMyMeshPhong = (mesh, mat) => {
+   ambient = mat[0];
+   diffuse = mat[1];
+   specular = mat[2];
+   setUniform('3fv', 'uAmbient', ambient);
+   setUniform('3fv', 'uDiffuse', diffuse);
+   setUniform('4fv', 'uSpecular', specular);
+   let m = mxm(perspective(0,0,-.1), matrix.get());
+   setUniform('Matrix4fv', 'uMF', false, m);
+   setUniform('Matrix4fv', 'uMI', false, inverse(m));
+   drawMesh(mesh);
+}
+
+let transformMeshData = (data,mat) => {
+   let xf = (M,p) => [ M[0]*p[0]+M[4]*p[1]+M[ 8]*p[2]+M[12]*p[3],
+                       M[1]*p[0]+M[5]*p[1]+M[ 9]*p[2]+M[13]*p[3],
+                       M[2]*p[0]+M[6]*p[1]+M[10]*p[2]+M[14]*p[3],
+                       M[3]*p[0]+M[7]*p[1]+M[11]*p[2]+M[15]*p[3] ];
+   let norm = v => Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+   let normalize = v => { let s=norm(v); return [v[0]/s,v[1]/s,v[2]/s]; }
+
+   let itm = inverse(mat);
+
+   for (let n = 0 ; n < data.length ; n += vertexSize) {
+      let pos = xf(mat, [data[n  ],data[n+1],data[n+2], 1]);
+      let nor = xf(itm, [data[n+3],data[n+4],data[n+5], 0]);
+      nor = normalize(nor);
+
+      data[n  ] = pos[0];
+      data[n+1] = pos[1];
+      data[n+2] = pos[2];
+
+      data[n+3] = nor[0];
+      data[n+4] = nor[1];
+      data[n+5] = nor[2];
+   }
+
+   return data;
+}
+
+let glueMeshes = (a,b) => {
+   if (a.triangle_strip != b.triangle_strip)
+      console.log('error: cannot glue two meshes of different types.');
+   let mesh = { triangle_strip: a.triangle_strip };
+   let V = [];
+   for (let n = 0 ; n < a.data.length ; n++)
+      V.push(a.data[n]);
+   if (mesh.triangle_strip) {
+      for (let n = 0 ; n < vertexSize ; n++)
+         V.push(a.data[a.data.length - vertexSize + n]);
+      for (let n = 0 ; n < vertexSize ; n++)
+         V.push(b.data[n]);
+   }
+   for (let n = 0 ; n < b.data.length ; n++)
+      V.push(b.data[n]);
+   mesh.data = new Float32Array(V);
+   return mesh;
+}
+
+// meshes
+let frame = { triangle_strip: true,
+           data: new Float32Array(torus(30,10,.12)) };
+let bell = { triangle_strip: true,
+           data: new Float32Array(hemisphere(20,10)) };
+let base = { triangle_strip: true,
+           data: new Float32Array(disk(20)) };
+let ball = { triangle_strip: true,
+           data: new Float32Array(sphere(10,10)) };
+
+let myTubeData = transformMeshData(tube(10), scale(1,1,2.5));
+let myTCapData = transformMeshData(hemisphere(10,10), move(0,0,2.5));
+let myBCapData = transformMeshData(hemisphere(10,10), mxm(move(0,0,-2.5),turnX(Math.PI)));
+let myTube = {
+   triangle_strip: true,
+   data: new Float32Array(myTubeData)
+};
+let myTCap = {
+   triangle_strip: true,
+   data: new Float32Array(myTCapData)
+};
+let myBCap = {
+   triangle_strip: true,
+   data: new Float32Array(myBCapData)
+};
+let stick = glueMeshes(glueMeshes(myTube, myTCap), myBCap);
+
+let myTube2 = { triangle_strip: true, data: new Float32Array(tiltTube(10,2.)) };
+let myTCapData2 = transformMeshData(hemisphere(10,10), mxm(move(0,0,-1.),turnX(Math.PI)));
+let myTCap2 = { triangle_strip: true, data: myTCapData2 };
+let foot = glueMeshes(myTube2, myTCap2);
+
+// phong materials
+let matRed = [[0.15,0.05,0.05], [0.8,0.1,0.1], [0.1,0.5,0.4,15]];
+let matWhiteShine = [[0.28,0.22,0.15], [0.8,0.8,0.8], [0.5,0.5,0.4,20]];
+let matFront = [[0.8,0.8,0.74], [0.05,0.05,0.1], [0,0,0,1]];
+let matBack = [[0.02,0.02,0.02], [0.06,0.06,0.04], [0.05,0.05,0.05,1]];
+let matMetal = [[0.1,0.1,0.1], [0.4,0.4,0.4], [0.5,0.5,0.4,1.3]];
+let matBlack = [[0.00,0.00,0.00], [0.01,0.01,0.01], [0.1,0.1,0.1,0.2]];
+
+this.update = viewPoint => {
+   let time = Date.now() / 1000 - startTime;
+
+   setUniform('1f', 'uTime', time);
+   setUniform('3fv', 'uViewPoint', viewPoint);
+   setUniform('3fv', 'uL', [0.8,0.8,0.8]);
+
+   let rot = Math.PI/2 + Math.sin(time) * Math.PI/4;
+   matrix.identity().turnY(rot);
+
+   matrix.push();
+      matrix.scale(.4,.4,1.8);
+      drawMyMeshPhong(frame, matRed);
+      matrix.scale(.91);
+      drawMyMeshPhong(frame, matWhiteShine);
+   matrix.pop();
+
+   matrix.push();
+      matrix.move(0,0.34,0);
+      matrix.scale(.2,.2,.2);
+      matrix.turnX( Math.PI / 2);
+      matrix.push();
+         matrix.move(-1.4,0.,0);
+         matrix.turnY( Math.PI * 0.73);
+         drawMyMeshPhong(bell, matRed);
+         matrix.scale(.12);
+         matrix.move(0,0,2.);
+         drawMyMeshPhong(stick, matMetal);
+         matrix.move(0,0,5.);
+         drawMyMeshPhong(stick, matMetal);
+      matrix.pop();
+      matrix.push();
+         matrix.move(1.4,0.,0);
+         matrix.turnY( Math.PI * 0.27);
+         drawMyMeshPhong(bell, matRed);
+         matrix.scale(.12);
+         matrix.move(0,0,2.);
+         drawMyMeshPhong(stick, matMetal);
+         matrix.move(0,0,5.);
+         drawMyMeshPhong(stick, matMetal);
+      matrix.pop();
+      matrix.push();
+         matrix.scale(0.08);  
+         matrix.move(0,0,-8);   
+         drawMyMeshPhong(stick, matMetal);
+         matrix.move(0,0,-4); 
+         matrix.turnX(Math.PI / 2);
+         matrix.turnY(Math.PI);
+         matrix.scale(1.5);    
+         drawMyMeshPhong(stick, matMetal);
+      matrix.pop();
+   matrix.pop();
+
+   // matrix.push();
+   //    matrix.move(0,0,.18);
+   //    matrix.scale(.4,.4,.01);
+   //    drawMyMeshPhong(base, matBack);
+      
+   // matrix.pop();
+
+   matrix.push();
+      matrix.move(0,0,-.16);
+      matrix.push();
+         matrix.turnY(Math.PI / 2);
+         matrix.scale(.4,.4,.01);
+         drawMyMeshPhong(base, matFront);
+      matrix.pop();
+      matrix.push();
+         matrix.scale(0.03,0.03,0.01);
+         drawMyMeshPhong(stick, matMetal);
+         matrix.scale(1.5, 1.5, 1);
+         matrix.move(0,0,2.1);
+         drawMyMeshPhong(stick, matMetal);
+      matrix.pop();
+      matrix.push();
+         matrix.turnY(Math.PI);
+         matrix.push();
+            matrix.turnX(-time * 6);
+            matrix.scale(0.01,0.008,0.058);
+            matrix.move(0.5,0,-2.);
+            drawMyMeshPhong(stick, matBlack);
+         matrix.pop();
+         matrix.push();
+            matrix.turnX(-time / 10);
+            matrix.scale(0.01,0.012,0.048);
+            matrix.move(0.5,0,-2.);
+            drawMyMeshPhong(stick, matBlack);
+         matrix.pop();
+         matrix.push();
+            matrix.turnX(40-time / 600);
+            matrix.scale(0.01,0.016,0.036);
+            matrix.move(0.5,0,-2.);
+            drawMyMeshPhong(stick, matBlack);
+         matrix.pop();
+      matrix.pop();
+   matrix.pop();
+
+   matrix.push();
+      matrix.move(0,-0.4,0);
+      matrix.turnX(-Math.PI/2);
+      matrix.push();
+         matrix.move(0.3,0,0);
+         matrix.push();
+            matrix.move(0.07,0,-0.12);
+            matrix.scale(.04,.04,.04);
+            drawMyMeshPhong(ball, matMetal);
+         matrix.pop();
+         matrix.turnY(4 * Math.PI / 3);
+         matrix.scale(.04,.04,.08);
+         drawMyMeshPhong(foot, matMetal);
+      matrix.pop();
+      matrix.push();
+         matrix.move(-0.3,0,0);
+         matrix.push();
+            matrix.move(-0.07,0,-0.12);
+            matrix.scale(.04,.04,.04);
+            drawMyMeshPhong(ball, matMetal);
+         matrix.pop();
+         matrix.turnY(- Math.PI / 3);
+         matrix.scale(.04,.04,.08);
+         drawMyMeshPhong(foot, matMetal);
+      matrix.pop();
+   matrix.pop();
+   
+}
+
+}
+gl_start(canvas, new Scene());
+</script>
