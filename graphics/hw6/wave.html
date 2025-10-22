@@ -1,24 +1,18 @@
 <body bgcolor=black>
-<center><canvas id=canvas width=800 height=800></canvas>
+<center>
+<div style="color: white; margin-bottom: 10px;">
+    <div style="margin-bottom: 5px;">
+        Speed: <input type="range" id="speedSlider" min="1.5" max="4.0" step="0.1" value="2.5" style="width: 200px">
+        <span id="speedValue">2.5</span>
+    </div>
+    <div>
+        Blue: <input type="range" id="blueSlider" min="0.6" max="1.0" step="0.01" value="0.8" style="width: 200px">
+        <span id="blueValue">0.8</span>
+    </div>
+</div>
+<canvas id=canvas width=800 height=800></canvas>
 <script src=webgl.js></script>
 <script>
-
-// DATA DESCRIBING ONE BEZIER PATCH
-
-_.X = [ -.60,-.20, .20, .60 ,
-        -.60,-.20, .20, .60 ,
-        -.60,-.20, .20, .60 ,
-        -.60,-.20, .20, .60 ];
-
-_.Y = [ -.60,-.60,-.60,-.60 ,
-        -.20,-.20,-.20,-.20 ,
-         .20, .20, .20, .20 ,
-         .60, .60, .60, .60 ];
-
-_.Z = [ -.40,-.40,-.40,-.40 ,
-        -.40, .40, .40,-.40 ,
-        -.40, .40, .40,-.40 ,
-        -.40,-.40,-.40,-.40 ];
 
 function Scene() {
 
@@ -73,13 +67,6 @@ let bezierPatch = (nu,nv,patch) => parametric((u,v,patch)=>{
 
 },nu,nv,patch);
 
-// SAVE THE PATCH AS A SINGLE GEOMETRY MESH
-
-mesh = {
-   triangle_strip: true,
-   data: new Float32Array(bezierPatch(10,10,[_.X,_.Y,_.Z])),
-};
-
 // GLSL SHADERS
 
 this.vertexShader = `\
@@ -101,6 +88,8 @@ precision highp float;
 in  vec3 vPos, vNor;
 out vec4 fragColor;
 uniform float uTime;
+uniform float uBlue;
+uniform float uSpeed;
 
 float turbulence(vec3 P) {
    float f = 0., s = 1.;
@@ -113,7 +102,7 @@ float turbulence(vec3 P) {
 }
 
 vec3 oilwater(vec3 pos) {
-   pos.y += .5 * turbulence(0.9 * uTime + 6. * pos);
+   pos.y += .5 * turbulence(uSpeed * uTime * .5 + 6. * pos);
    float t = .5 + .5 * turbulence(vec3(.5,20.,.5) * pos+2.*sin(pos));        
    vec3 c = vec3(0.8,.8,.8) * mix(1.5, .1, t);
    c *= 1.+ .6 * pow(abs(sin(10. * pos.y)), 10.);
@@ -125,17 +114,63 @@ void main() {
 
    vec3 texture = oilwater(vPos);
 
-   float c = .1 + max(0., dot(vec3(.5) * texture,nor));
-   fragColor = vec4(c,c,c, 1.);
+   float shade = .1 + max(0., dot(vec3(.9) * texture,nor));
+   vec3 c = shade * vec3(0.2, 0.6, uBlue);
+   fragColor = vec4(c, 1.);
 }`;
 
-// PLACE THE PATCH IN THE SCENE
 
 let startTime = Date.now()/1000;
+let speed = 2.5;
+let blue = 0.8;
+
+// Set up slider controls
+const setupSliders = () => {
+    const speedSlider = document.getElementById('speedSlider');
+    const blueSlider = document.getElementById('blueSlider');
+    const speedValue = document.getElementById('speedValue');
+    const blueValue = document.getElementById('blueValue');
+
+    speedSlider.oninput = () => {
+        speed = parseFloat(speedSlider.value);
+        speedValue.textContent = speed.toFixed(1);
+    };
+
+    blueSlider.oninput = () => {
+        blue = parseFloat(blueSlider.value);
+        blueValue.textContent = blue.toFixed(2);
+    };
+};
+
+// Call setup once DOM is loaded
+setTimeout(setupSliders, 0);
 
 this.update = () => {
    let time = Date.now() / 1000 - startTime;
+
+   _.X = [ -.80,-.20, .20, .80 ,
+         -.80,-.20, .20, .80 ,
+         -.80,-.20, .20, .80 ,
+         -.80,-.20, .20, .80 ];
+
+   _.Y = [ -.80,-.80,-.80,-.80 ,
+         -.20,-.20,-.20,-.20 ,
+            .20, .20, .20, .20 ,
+            .80, .80, .80, .80 ];
+
+   _.Z = [ -.10 * Math.cos(time*speed), -.20 * Math.sin(time*speed),.20 * Math.cos(time*speed),-.10 * Math.sin(time*speed),
+            -.20 * Math.sin(time*speed), .40 * Math.cos(time*speed), .40 * Math.sin(time*speed),-.20 * Math.cos(time*speed) ,
+            -.20 * Math.cos(time*speed), .40 * Math.sin(time*speed), .40 * Math.cos(time*speed),-.20 * Math.sin(time*speed),
+            -.10 * Math.sin(time*speed),-.20 * Math.cos(time*speed),-.20 * Math.sin(time*speed),-.10 * Math.cos(time*speed) ];
+
+   mesh = {
+      triangle_strip: true,
+      data: new Float32Array(bezierPatch(10,10,[_.X,_.Y,_.Z])),
+   };
+
    setUniform('1f', 'uTime', time);
+   setUniform('1f', 'uSpeed', speed);
+   setUniform('1f', 'uBlue', blue);
 
    let m = mxm(perspective(0,0,-.1),
            mxm(turnY(_.theta??0),turnX(_.phi??0)));
