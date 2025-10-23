@@ -118,21 +118,15 @@ void main() {
 }`;
 
 let speed = 2.5;
-let blue = 0.8;
+let blue = 0.95;
 const setupSliders = () => {
     const speedSlider = document.getElementById('speedSlider');
     const blueSlider = document.getElementById('blueSlider');
-    const speedValue = document.getElementById('speedValue');
-    const blueValue = document.getElementById('blueValue');
-
     speedSlider.oninput = () => {
         speed = parseFloat(speedSlider.value);
-        speedValue.textContent = speed.toFixed(1);
     };
-
     blueSlider.oninput = () => {
         blue = parseFloat(blueSlider.value);
-        blueValue.textContent = blue.toFixed(2);
     };
 };
 setTimeout(setupSliders, 0);
@@ -142,12 +136,12 @@ let startTime = Date.now()/1000;
 this.update = () => {
    let time = Date.now() / 1000 - startTime;
 
-   _.X = [ -.80,-.20, .20, .80 ,
-         -.80,-.20, .20, .80 ,
-         -.80,-.20, .20, .80 ,
-         -.80,-.20, .20, .80 ];
+   _.X = [ -0.80,-.20, .20, .80 ,
+         -0.80,-.20, .20, .80 ,
+         -0.80,-.20, .20, .80 ,
+         -0.80,-.20, .20, .80 ];
 
-   _.Y = [ -.80,-.80,-.80,-.80 ,
+   _.Y = [ -2.0,-2.0,-2.0,-2.0 ,
          -.20,-.20,-.20,-.20 ,
             .20, .20, .20, .20 ,
             .80, .80, .80, .80 ];
