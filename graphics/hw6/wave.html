@@ -2,12 +2,10 @@
 <center>
 <div style="color: white; margin-bottom: 10px;">
     <div style="margin-bottom: 5px;">
-        Speed: <input type="range" id="speedSlider" min="1.5" max="4.0" step="0.1" value="2.5" style="width: 200px">
-        <span id="speedValue">2.5</span>
+        Speed: <input type="range" id="speedSlider" min="1.0" max="4.0" step="0.1" value="2.5" style="width: 200px">
     </div>
     <div>
-        Blue: <input type="range" id="blueSlider" min="0.6" max="1.0" step="0.01" value="0.8" style="width: 200px">
-        <span id="blueValue">0.8</span>
+        Color: <input type="range" id="blueSlider" min="0.9" max="1.0" step="0.01" value="0.95" style="width: 200px">
     </div>
 </div>
 <canvas id=canvas width=800 height=800></canvas>
@@ -115,16 +113,12 @@ void main() {
    vec3 texture = oilwater(vPos);
 
    float shade = .1 + max(0., dot(vec3(.9) * texture,nor));
-   vec3 c = shade * vec3(0.2, 0.6, uBlue);
+   vec3 c = shade * vec3(0.2, 0.9, uBlue);
    fragColor = vec4(c, 1.);
 }`;
 
-
-let startTime = Date.now()/1000;
 let speed = 2.5;
 let blue = 0.8;
-
-// Set up slider controls
 const setupSliders = () => {
     const speedSlider = document.getElementById('speedSlider');
     const blueSlider = document.getElementById('blueSlider');
@@ -141,9 +135,9 @@ const setupSliders = () => {
         blueValue.textContent = blue.toFixed(2);
     };
 };
-
-// Call setup once DOM is loaded
 setTimeout(setupSliders, 0);
+
+let startTime = Date.now()/1000;
 
 this.update = () => {
    let time = Date.now() / 1000 - startTime;
@@ -173,7 +167,7 @@ this.update = () => {
    setUniform('1f', 'uBlue', blue);
 
    let m = mxm(perspective(0,0,-.1),
-           mxm(turnY(_.theta??0),turnX(_.phi??0)));
+           mxm(turnY(_.theta??0),turnX(_.phi??-Math.PI/2.5)));
    setUniform('Matrix4fv', 'uMF', false, m);
    setUniform('Matrix4fv', 'uMI', false, inverse(m));
 }
@@ -181,47 +175,3 @@ this.update = () => {
 }
 gl_start(canvas, new Scene());
 </script>
-
-<script>
-(() => {
-   const cvs = document.getElementById('canvas');
-   if (typeof _.theta !== 'number') _.theta = 0;
-   if (typeof _.phi !== 'number') _.phi = - Math.PI / 2.5;
-
-   let dragging = false;
-   let lastX = 0, lastY = 0;
-
-   const toRad = (d) => d * Math.PI / 180;
-
-   cvs.addEventListener('pointerdown', (e) => {
-      dragging = true;
-      cvs.setPointerCapture(e.pointerId);
-      lastX = e.clientX;
-      lastY = e.clientY;
-   });
-
-   cvs.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      lastX = e.clientX; lastY = e.clientY;
-
-      const sens = 0.4; // degrees per pixel
-      _.theta += toRad(dx * sens);
-      _.phi   += toRad(dy * sens);
-
-      const limit = Math.PI/2 - 0.01;
-      if (_.phi > limit) _.phi = limit;
-      if (_.phi < -limit) _.phi = -limit;
-   });
-
-   const endDrag = (e) => {
-      dragging = false;
-      try { cvs.releasePointerCapture(e.pointerId); } catch (err) {}
-   };
-   cvs.addEventListener('pointerup', endDrag);
-   cvs.addEventListener('pointercancel', endDrag);
-})();
-</script>
-
-
