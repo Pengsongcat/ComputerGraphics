@@ -1,0 +1,187 @@
+<body bgcolor=black>
+<center><canvas id=canvas width=800 height=800></canvas>
+<script src=webgl.js></script>
+<script>
+
+// RENDER A SHORT TEXT MESSAGE IN A LINEFONT
+
+function Scene() {
+
+   let createPathsMesh = (lineWidth, paths) => {
+      let vertices = [];
+      let addVertex = pos => vertices.push(pos,[0,0,1]);
+      for (let n = 0 ; n < paths.length ; n++) {
+         let path = paths[n];
+         for (let i = 0 ; i < path.length-1 ; i++) {
+            let b = path[i  ];
+            let c = path[i+1];
+            let a = i>0 ? path[i-1] : add(b,subtract(b,c));
+            let da = normalize(subtract(b, a));
+            let dc = normalize(subtract(c, b));
+            let db = normalize(add(da, dc));
+            let s = dot(da, db);
+            da = resize(da, lineWidth/2);
+            dc = resize(dc, lineWidth/2);
+            db = resize(db, lineWidth/2);
+            let ea = [-da[1]  , da[0]  , 0];
+            let ec = [-dc[1]  , dc[0]  , 0];
+            let eb = [-db[1]/s, db[0]/s, 0];
+            if (i == 0)
+               b = subtract(b, da);
+            if (dot(da, dc) < 0) {
+               if (n > 0 && i == 0)
+                  addVertex(subtract(b, ea));
+               addVertex(subtract(b, ea));
+               addVertex(add(b, ea));
+               addVertex(subtract(b, ec));
+               addVertex(add(b, ec));
+            }
+            else {
+               if (n > 0 && i == 0)
+                  addVertex(subtract(b, eb));
+               addVertex(subtract(b, eb));
+               addVertex(add(b, eb));
+            }
+            if (i == path.length-2) {
+               addVertex(subtract(add(c, dc), ec));
+               addVertex(add(add(c, dc), ec));
+            }
+            if (n < paths.length-1 && i == path.length-2)
+               addVertex(add(add(c, dc), ec));
+         }
+      }
+      return {
+         triangle_strip: true,
+	 data: new Float32Array(vertices.flat())
+      }
+   }
+
+   let createTextMesh = (text, textwidth=0.019, lineheight=.0375, textweight=.0025) => {
+      let myPaths = [], lines = text.split('\n'), c;
+      for (let row = 0 ; row < lines.length ; row++)
+      for (let col = 0 ; col < lines[row].length ; col++)
+         if ((c=lines[row].charCodeAt(col) & 127) > 32) {
+            let x = textwidth*col, y = -lineheight*row;
+            let paths = linefont[c - 32].paths;
+            for (let i = 0 ; i < paths.length ; i++) {
+               let myPath = [], path = paths[i];
+               for (let j = 0 ; j < path.length ; j++) {
+	          let p = path[j];
+                  myPath.push([ x + p[0] / 4000,
+                                y - p[1] / 4000, 0]);
+               }
+               myPaths.push(myPath);
+            }
+         }
+      return createPathsMesh(textweight, myPaths);
+   }
+
+   let mytext = "Type in Some Words";
+   let meshList = [];
+   for (let i = 0; i < mytext.length; i++) {
+      let mesh = createTextMesh(mytext[i]);
+      if (mesh) meshList.push(mesh);
+   }
+
+   this.vertexShader = Shader.defaultVertexShader;
+   this.fragmentShader = `\
+#version 300 es
+precision highp float;
+in  vec3 vPos, vNor;
+out vec4 fragColor;
+uniform float uTime;
+uniform vec3 uColor;
+uniform float uSpeed;
+
+float turbulence(vec3 P) {
+   float f = 0., s = 1.;
+   for (int i = 0 ; i < 9 ; i++) {
+      f += abs(noise(s * P)) / s;
+      s *= 2.;
+      P = vec3(.866*P.x + .5*P.z, P.y + 100., -.5*P.x + .866*P.z);
+   }
+   return f;
+}
+
+vec3 oilwater(vec3 pos) {
+   pos.y += .5 * turbulence(uSpeed * uTime * .3 + 8. * pos);
+   float t = .5 + .6 * turbulence(vec3(.5,20.,.5) * pos+2.*sin(pos));        
+   vec3 c = vec3(0.8,.8,.8) * mix(1.5, .1, t);
+   c *= 0.9 + .9 * pow(abs(sin(10. * pos.y)), 10.);
+   return c;
+}
+
+void main() {
+   vec3 nor = normalize(vNor);
+
+   vec3 texture = oilwater(vPos);
+
+   float shade = .4 + max(0., dot(vec3(1.) * texture, nor));
+   vec3 c = shade * uColor;
+   fragColor = vec4(c, 1.);
+}`;
+
+   autodraw = false;
+
+   let M = new Matrix();
+
+   let draw = (mesh, matrix, color) => {
+      let m = mxm(perspective(0,0,-.2),matrix??M.get());
+      setUniform('Matrix4fv', 'uMF', false, m);
+      setUniform('Matrix4fv', 'uMI', false, inverse(m));
+      setUniform('3fv', 'uColor', color ?? [1,1,1]);
+      drawMesh(mesh);
+      return this;
+   }
+   
+
+   let yPos = meshList.map(() => 1.5 + Math.random() * 6.);
+   let yFinalPos = meshList.map(() => .9);
+   let xFinalPos = meshList.map((_, index) => -0.5 + 0.06 * (index));
+   let zFinalPos = meshList.map(() => 0.);
+   let colorList = meshList.map(() => Math.random());
+   let scaleList = meshList.map(() => 4);
+   let rotateSpeed = meshList.map(() => 0);
+
+   let dropSpeed = 0.015;
+
+   window.addEventListener('keydown', e => {
+      let ch = e.key;
+      if (ch.length === 1) {
+         let mesh = createTextMesh(ch);
+         if (mesh) {
+            meshList.push(mesh);
+            let i = meshList.length - 1;
+            yPos.push(2 + Math.random() * 3);
+            yFinalPos.push((Math.random()-0.5) * 1.2 - 0.05);
+            xFinalPos.push((Math.random()-0.5) * 1.5);
+            zFinalPos.push((Math.random()-0.5) * 1.5);
+            colorList.push(Math.random());
+            scaleList.push(4. + Math.random() * 2);
+            rotateSpeed.push(0.25 + (Math.random() * 0.8));
+         }
+      }
+   });
+
+   this.update = () => {
+      let time = Date.now() / 1000;
+
+      for (let i = 0; i < meshList.length; i++) {
+         yPos[i] += ( yFinalPos[i] - yPos[i]) * dropSpeed;
+         draw(
+            meshList[i],
+            mxm(
+               mxm(turnY(time * rotateSpeed[i]),
+               mxm(move(xFinalPos[i], yPos[i], zFinalPos[i]), scale(scaleList[i]))),
+               mxm(turnY(Math.sin(time + i * 1.25)), move(-0.008, 0, 0))
+            ),
+            //[0.4, .8, Math.sin(time) * 0.4 + 0.6]
+            [ .4 + 0.4 * colorList[i], .7, Math.sin(time) * 0.4 + 0.6]
+         );
+      }
+   }
+}
+
+gl_start(canvas, new Scene());
+</script>
+
