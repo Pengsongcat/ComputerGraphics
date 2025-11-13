@@ -1,0 +1,116 @@
+<body bgcolor=white>
+<center><canvas id=canvas width=800 height=800></canvas>
+<script src=webgl.js></script>
+<script src=implicit.js></script>
+<script>
+
+function Scene() {
+
+   this.vertexShader = `#version 300 es
+      uniform mat4 uMF, uMI, uMat[20];
+      in  vec3 aPos, aNor, aWts0, aWts1;
+      out vec3 vPos, vNor;
+      void main() {
+         vec4 p = uMF * vec4(aPos, 1.);
+         vec4 pos = vec4(0.);
+         for (int i = 0 ; i < 20 ; i++) {
+            if (i == int(aWts0.x)) pos += mod(aWts0.x, 1.) * (uMat[i] * p);
+            if (i == int(aWts0.y)) pos += mod(aWts0.y, 1.) * (uMat[i] * p);
+            if (i == int(aWts0.z)) pos += mod(aWts0.z, 1.) * (uMat[i] * p);
+            if (i == int(aWts1.x)) pos += mod(aWts1.x, 1.) * (uMat[i] * p);
+            if (i == int(aWts1.y)) pos += mod(aWts1.y, 1.) * (uMat[i] * p);
+            if (i == int(aWts1.z)) pos += mod(aWts1.z, 1.) * (uMat[i] * p);
+         }
+         vec4 nor = vec4(aNor, 0.) * uMI;
+         gl_Position = pos * vec4(1.,1.,-.1,1.);
+         vPos = pos.xyz;
+         vNor = nor.xyz;
+      }
+   `;
+
+   this.fragmentShader = Shader.defaultFragmentShader;
+
+   // Body
+   let body_blob = new Blobs();
+
+   let body_m1 = mxm(move(0,.07,0.06),scale(.12, .1, .13));
+   let body_m2 = mxm(move(0., -.16,0),scale(.22,.25,.23));
+   let body_m3 = mxm(move( .12,-.05,0.2),scale(.04,.04,.08));
+   let body_m4 = mxm(move( -.12,-.05,0.2),scale(.04,.04,.08));
+   let body_m5 = mxm(move( .13,-.3,0.16),scale(.06,.05,.1));
+   let body_m6 = mxm(move( -.13,-.3,0.16),scale(.06,.05,.1));
+   body_blob.addBlob(body_blob.SPHERE, body_m2, .9);
+   body_blob.addBlob(body_blob.SPHERE, body_m1, .6);
+   body_blob.addBlob(body_blob.SPHERE, body_m3, .7);
+   body_blob.addBlob(body_blob.SPHERE, body_m4, .7);
+   body_blob.addBlob(body_blob.SPHERE, body_m5, .9);
+   body_blob.addBlob(body_blob.SPHERE, body_m6, .9);
+   let body_mesh = { data: implicitSurfaceTriangleMesh(body_blob, 180) };
+   
+   let body_color = [0.2,0.17,0.18];
+
+   // hands
+
+   // feets
+
+   // mouth
+   let mouth_blob = new Blobs();
+   let mouth_m1 = mxm(move(0, .075, 0.2), scale(.05, .025, .08));
+   mouth_blob.addBlob(mouth_blob.SPHERE, mouth_m1, .7);
+   let mouth_mesh = { data: implicitSurfaceTriangleMesh(mouth_blob, 180) };
+   let mouth_color = [0.5, 0.2, 0.1];
+
+   // eyes
+   let eye_blob = new Blobs();
+   let eye_m1 = mxm(move(-0.05, 0.1, 0.15), scale(.03, .03, .03));
+   let eye_m2 = mxm(move(0.05, 0.1, 0.15), scale(.03, .03, .03));
+   eye_blob.addBlob(eye_blob.SPHERE, eye_m1, .7);
+   eye_blob.addBlob(eye_blob.SPHERE, eye_m2, .7);
+   let eye_mesh = { data: implicitSurfaceTriangleMesh(eye_blob, 180) };
+   let eye_color = [0.1, 0.1, 0.1];
+
+   // coin
+
+   let M = new Matrix();
+
+   this.update = () => {
+      let time = Date.now() / 1000;
+      let A, B, C, D;
+
+      M.push();
+         A = M.get();
+         B = M.get();
+         M.push();
+            M.move(-0.1 + c(time * 2) * .1,.0,0);
+            // M.turnZ(-Math.PI/2);
+            C = M.get();
+         M.pop();
+         M.push();
+            M.move(0.1 - c(time * 2) * .1,.0,0);
+            D = M.get();
+         M.pop();
+         // M.move(.3,0,0);
+         
+         // M.move(.05,0,0);
+         // M.turnZ(bend);
+         // M.move(.05-.1*bend,0,0);
+         
+         // M.move(.05,0,0);
+         // M.turnZ(bend);
+         // M.move(.05,1,0);
+         
+         
+      M.pop();
+
+      setUniform('Matrix4fv', 'uMat', false, [A,B,C,D].flat());
+      vertexMap(['aPos',3,'aNor',3,'aWts0',3,'aWts1',3]);
+
+      drawObj(body_mesh, scale(2), body_color);
+      drawObj(mouth_mesh, scale(2), mouth_color);
+      drawObj(eye_mesh, scale(2), eye_color);
+   }
+}
+
+gl_start(canvas, new Scene());
+</script>
+
