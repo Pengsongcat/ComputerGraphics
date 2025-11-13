@@ -1,4 +1,6 @@
 <body bgcolor=white>
+<h1 style="color:#000; text-align:center;">Drag to rotate the Niffler!</h1>
+<br>
 <center><canvas id=canvas width=800 height=800></canvas>
 <script src=webgl.js></script>
 <script src=implicit.js></script>
@@ -34,63 +36,94 @@ function Scene() {
    let body_blob = new Blobs();
 
    let body_m1 = mxm(move(0,.07,0.06),scale(.12, .1, .13));
-   let body_m2 = mxm(move(0., -.16,0),scale(.22,.25,.23));
+   let body_m2 = mxm(move(0., -.14,0),scale(.22,.23,.23));
    let body_m3 = mxm(move( .12,-.05,0.2),scale(.04,.04,.08));
    let body_m4 = mxm(move( -.12,-.05,0.2),scale(.04,.04,.08));
    let body_m5 = mxm(move( .13,-.3,0.16),scale(.06,.05,.1));
    let body_m6 = mxm(move( -.13,-.3,0.16),scale(.06,.05,.1));
+   let body_m7 = mxm(move(0, -.28, -0.2), scale(.04, .04, .1));
    body_blob.addBlob(body_blob.SPHERE, body_m2, .9);
    body_blob.addBlob(body_blob.SPHERE, body_m1, .6);
    body_blob.addBlob(body_blob.SPHERE, body_m3, .7);
    body_blob.addBlob(body_blob.SPHERE, body_m4, .7);
    body_blob.addBlob(body_blob.SPHERE, body_m5, .9);
    body_blob.addBlob(body_blob.SPHERE, body_m6, .9);
-   let body_mesh = { data: implicitSurfaceTriangleMesh(body_blob, 180) };
+   body_blob.addBlob(body_blob.SPHERE, body_m7, 1.9);
+   let body_mesh = { data: implicitSurfaceTriangleMesh(body_blob, 200) };
    
    let body_color = [0.2,0.17,0.18];
 
-   // hands
-
-   // feets
-
    // mouth
-   let mouth_blob = new Blobs();
-   let mouth_m1 = mxm(move(0, .075, 0.2), scale(.05, .025, .08));
-   mouth_blob.addBlob(mouth_blob.SPHERE, mouth_m1, .7);
-   let mouth_mesh = { data: implicitSurfaceTriangleMesh(mouth_blob, 180) };
+   let mouth_blob1 = new Blobs();
+   let mouth_m1 = mxm(move(0, .075, 0.2), scale(.056, .012, .08));
+   mouth_blob1.addBlob(mouth_blob1.SPHERE, mouth_m1, .8);
+   let mouth_mesh1 = { data: implicitSurfaceTriangleMesh(mouth_blob1, 180) };
+
+   let mouth_blob2 = new Blobs();
+   let mouth_m2 = mxm(move(0, .065, 0.2), scale(.05, .011, .07));
+   mouth_blob2.addBlob(mouth_blob2.SPHERE, mouth_m2, .8);
+   let mouth_mesh2 = { data: implicitSurfaceTriangleMesh(mouth_blob2, 180) };
+
    let mouth_color = [0.5, 0.2, 0.1];
 
    // eyes
-   let eye_blob = new Blobs();
-   let eye_m1 = mxm(move(-0.05, 0.1, 0.15), scale(.03, .03, .03));
-   let eye_m2 = mxm(move(0.05, 0.1, 0.15), scale(.03, .03, .03));
-   eye_blob.addBlob(eye_blob.SPHERE, eye_m1, .7);
-   eye_blob.addBlob(eye_blob.SPHERE, eye_m2, .7);
-   let eye_mesh = { data: implicitSurfaceTriangleMesh(eye_blob, 180) };
-   let eye_color = [0.1, 0.1, 0.1];
+   let eye_blob1 = new Blobs();
+   let eye1_m1 = mxm(move(-0.05, 0.1, 0.161), scale(.02, .02, .02));
+   let eye1_m2 = mxm(move(0.05, 0.1, 0.161), scale(.02, .02, .02));
+   eye_blob1.addBlob(eye_blob1.SPHERE, eye1_m1, .7);
+   eye_blob1.addBlob(eye_blob1.SPHERE, eye1_m2, .7);
+   let eye_mesh1 = { data: implicitSurfaceTriangleMesh(eye_blob1, 180) };
+   let eye_color1 = [0.9, 0.9, 0.8];
+
+   let eye_blob2 = new Blobs();
+   let eye2_m1 = mxm(move(-0.05, 0.1, 0.17), scale(.016, .015, .016));
+   let eye2_m2 = mxm(move(0.05, 0.1, 0.17), scale(.016, .015, .016));
+   eye_blob2.addBlob(eye_blob1.SPHERE, eye2_m1, .9);
+   eye_blob2.addBlob(eye_blob1.SPHERE, eye2_m2, .9);
+   let eye_mesh2 = { data: implicitSurfaceTriangleMesh(eye_blob2, 180) };
+   let eye_color2 = [0.1, 0.1, 0.1];
 
    // coin
+   let coin_blob = new Blobs();
+   let coin_m1 = mxm(move(0, -0.06, 0.24), scale(.05, .05, .01));
+   coin_blob.addBlob(coin_blob.CYLINDER, coin_m1, 0.6);
+   let coin_mesh = { data: implicitSurfaceTriangleMesh(coin_blob, 180) };
+   let coin_color = [0.9, 0.8, 0.1];
 
    let M = new Matrix();
 
    this.update = () => {
       let time = Date.now() / 1000;
-      let A, B, C, D;
+      let A, B, C, D, E, F, G;
 
       M.push();
-         M.move(0, 0, -3.);
-         M.turnY(c(time * 2));
+         M.move(0, 0.4, -3.);
+         M.turnX(0.2);
+         M.turnY(0.5);
+         
          A = M.get();
          B = M.get();
          M.push();
-            M.move(-0.1 + c(time * 2) * .1,.0,0);
-            // M.turnZ(-Math.PI/2);
+            M.move(-0.1 + c(time * 2) * .02, -0.02 +c(time * 2) * .08,0);
             C = M.get();
          M.pop();
          M.push();
-            M.move(0.1 - c(time * 2) * .1,.0,0);
+            M.move(0.1 - c(time * 2) * .02, -0.02 +c(time * 2) * .08,0);
             D = M.get();
          M.pop();
+         M.push();
+            M.move(0.06 - c(time * 2) * .04, 0,0);
+            F = M.get();
+         M.pop();
+         M.push();
+            M.move(-0.06 + c(time * 2) * .04, 0,0);
+            E = M.get();
+         M.pop();
+         M.push();
+            M.move(c(time) * .1, c(time/2) * .04,0);
+            G = M.get();
+         M.pop();
+
          // M.move(.3,0,0);
          
          // M.move(.05,0,0);
@@ -104,12 +137,15 @@ function Scene() {
          
       M.pop();
 
-      setUniform('Matrix4fv', 'uMat', false, [A,B,C,D].flat());
+      setUniform('Matrix4fv', 'uMat', false, [A,B,C,D,E,F,G].flat());
       vertexMap(['aPos',3,'aNor',3,'aWts0',3,'aWts1',3]);
 
       drawObj(body_mesh, scale(2), body_color);
-      drawObj(mouth_mesh, scale(2), mouth_color);
-      drawObj(eye_mesh, scale(2), eye_color);
+      drawObj(mouth_mesh1, scale(2), mouth_color);
+      drawObj(mouth_mesh2, scale(2), mouth_color);
+      drawObj(eye_mesh1, scale(2), eye_color1);
+      drawObj(eye_mesh2, scale(2), eye_color2);
+      drawObj(coin_mesh, scale(2), coin_color);
    }
 }
 
