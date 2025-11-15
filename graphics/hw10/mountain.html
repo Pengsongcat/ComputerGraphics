@@ -10,13 +10,13 @@ SHAPE: &nbsp;
 <button onclick=setS(0)>sphere</button>
 <button onclick=setS(1)>tube</button> -->
 <div style="margin-bottom: 5px;">
-   Bump Scale: <input type="range" id="bumpSlider" min="0." max="3.0" step="0.1" value="1.5" style="width: 200px">
+   Bump Scale: <input type="range" id="bumpSlider" min="0.4" max="1.0" step="0.01" value="0.7" style="width: 200px">
 </div>
 <canvas id=canvas width=800 height=800></canvas>
 <script src=webgl.js></script>
 <script>
 
-let bumpScale = 1.5;
+let bumpScale = 0.7;
 const setupSliders = () => {
     const bumpSlider = document.getElementById('bumpSlider');
     bumpSlider.oninput = () => {
@@ -89,8 +89,8 @@ function Scene() {
          float c = .1 + max(0., dot(vec3( .5),nor))
                       + max(0., dot(vec3(-.5),nor));
 
-         vec3 L = vec3(.577);
-	 vec3 Key  = vec3(.5,.7,1.),
+         vec3 L = vec3(.7);
+	      vec3 Key  = vec3(.7,.8,.9),
 	      Fill = vec3(.6,.2,.1);
          float d = dot(L,nor), r = 2.*d*nor.z - L.z;
          vec3 diffuse = .2 + .5 * Key  * max(0., d)
@@ -132,7 +132,7 @@ function Scene() {
       let x = 2 * u - 1; 
       let y = 0;
       let z = 2 * v - 1;      
-      return [x, y, z,  0, 0, 1, 1, 0, 0, u, v];
+      return [x, y, z,  0, 1, 0, 1, 0, 0, u, v];
    });
 
    let tube = nu => createMesh(nu,2,(u,v) => {
@@ -152,15 +152,15 @@ function Scene() {
       if (setShape) {
          mesh = {
             triangle_strip: true,
-            data: new Float32Array(grid(40,40))
+            data: new Float32Array(grid(80,80))
          };
          
          setShape = false;
       }
 
       if (loadTexture) {
-         addTexture(0, src[I]+'_color.png'); // TEXTURE
-         addTexture(1, src[I]+'_bump.png'); // BUMP MAP
+         addTexture(0, 'colormap.png'); // TEXTURE
+         addTexture(1, 'normalmap.png'); // BUMP MAP
          addTexture(2, 'heightmap.png'); // Height MAP
 	      loadTexture = false;
       }
