@@ -1,3 +1,32 @@
+// RESPOND TO THE USER'S MOUSE INPUT
+
+let mouse = { isDown: false, x: 0, y: 0};
+
+document.addEventListener('mousedown', e => {
+   color = [0,0,1];
+   mouse.isDown = true;
+   mouse.x = (e.x - gl.width/2 ) / (gl.width/2);
+   mouse.y = (gl.height/2 - e.y) / (gl.width/2);
+   if (mouse.down)
+      mouse.down();
+});
+
+document.addEventListener('mousemove', e => {
+   if (mouse.isDown) {
+      let x = (e.x - gl.width/2 ) / (gl.width/2);
+      let y = (gl.height/2 - e.y) / (gl.width/2);
+      if (mouse.drag)
+         mouse.drag(x - mouse.x, y - mouse.y);
+      mouse.x = x;
+      mouse.y = y;
+   }
+});
+
+document.addEventListener('mouseup', e => {
+   if (mouse.up)
+      mouse.up();
+   mouse.isDown = false;
+});
 
 // PREDEFINE SOME USEFUL SHADER FUNCTIONS
 
@@ -98,9 +127,12 @@ let drawMesh = mesh => {
                  0, mesh.data.length / vertexSize);
 }
 
+let spin = 0;
+mouse.drag = (x,y) => spin += x;
 let drawObj = (mesh, matrix, color) => {
    autodraw = false;
-   let m = mxm(perspective(0,0,-.5),matrix);
+   let m = mxm(perspective(0,0,-.0),
+         mxm(turnY(spin),matrix));
    setUniform('Matrix4fv', 'uMF', false, m);
    setUniform('Matrix4fv', 'uMI', false, inverse(m));
    setUniform('3fv', 'uColor', color ?? [1,1,1]);
@@ -368,36 +400,6 @@ void main() {
 }`,
 
 };
-
-// RESPOND TO THE USER'S MOUSE INPUT
-
-let mouse = { isDown: false, x: 0, y: 0};
-
-document.addEventListener('mousedown', e => {
-   color = [0,0,1];
-   mouse.isDown = true;
-   mouse.x = (e.x - gl.width/2 ) / (gl.width/2);
-   mouse.y = (gl.height/2 - e.y) / (gl.width/2);
-   if (mouse.down)
-      mouse.down();
-});
-
-document.addEventListener('mousemove', e => {
-   if (mouse.isDown) {
-      let x = (e.x - gl.width/2 ) / (gl.width/2);
-      let y = (gl.height/2 - e.y) / (gl.width/2);
-      if (mouse.drag)
-         mouse.drag(x - mouse.x, y - mouse.y);
-      mouse.x = x;
-      mouse.y = y;
-   }
-});
-
-document.addEventListener('mouseup', e => {
-   if (mouse.up)
-      mouse.up();
-   mouse.isDown = false;
-});
 
 // ADDING A TEXTURE
 
