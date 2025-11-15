@@ -143,6 +143,8 @@ function Scene() {
       return [ x,y,z, x,y,0, -y,x,0, u,v ];
    });
 
+   let M = new Matrix();
+
    let startTime = Date.now() / 1000;
    this.update = () => {
       let time = Date.now() / 1000 - startTime;
@@ -173,7 +175,12 @@ function Scene() {
       setUniform('1iv', 'uSampler', [0,1]);
       setUniform('1f', 'uHeightScale', bumpScale);
 
-      drawObj(mesh, scale(.4,.4,.55));
+      M.push();
+         M.scale(.6);
+         M.turnY(0.5 + time * 0.5);
+         M.move(0, -0.5, 0);
+         drawObj(mesh, M.get());
+      M.pop();
    }
 }
 

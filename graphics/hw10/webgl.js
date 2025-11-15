@@ -131,8 +131,9 @@ let spin = 0;
 mouse.drag = (x,y) => spin += x;
 let drawObj = (mesh, matrix, color) => {
    autodraw = false;
-   let m = mxm(perspective(0,0,-.0),
-         mxm(turnY(spin),matrix));
+   let m = mxm(turnX(.8),
+         mxm(perspective(0.,0.,-0.2),
+         mxm(turnY(spin),matrix)));
    setUniform('Matrix4fv', 'uMF', false, m);
    setUniform('Matrix4fv', 'uMI', false, inverse(m));
    setUniform('3fv', 'uColor', color ?? [1,1,1]);
