@@ -60,7 +60,7 @@ gltfLoader.load("./spz/collider.glb", (gltf) => {
 
 
 // Dyno Shader
-function DynoShader(splatMesh, params, animateT) {
+function DynoShader(splatMesh, params, T) {
   splatMesh.objectModifier = dyno.dynoBlock(
     { gsplat: dyno.Gsplat },
     { gsplat: dyno.Gsplat },
@@ -118,10 +118,8 @@ function DynoShader(splatMesh, params, animateT) {
           vec3 scales = ${inputs.gsplat}.scales;
           float t     = ${inputs.t};
 
-          vec3 offset =
-            noise(pos * ${inputs.waveFrequency} + t * ${inputs.waveSpeed})
-            * ${inputs.waveAmplitute}
-            * ${inputs.intensity};
+          vec3 offset = noise(pos * ${inputs.waveFrequency} + t * ${inputs.waveSpeed})
+                        * ${inputs.waveAmplitute} * ${inputs.intensity};
 
           ${outputs.gsplat}.center = pos + offset;
 
@@ -130,22 +128,16 @@ function DynoShader(splatMesh, params, animateT) {
 
           float influence = smoothstep(radius, 0.0, d);
 
-          float localScale = mix(
-            ${inputs.scaleBlend}, // outside
-            1.0,                 // center
-            influence
-          );
+          float localScale = mix(${inputs.scaleBlend}, 1.0, influence);
 
           ${outputs.gsplat}.scales = scales * localScale;
-
-
         `),
       });
       
 
       gsplat = d.apply({
         gsplat,
-        t: animateT,
+        t: T,
         intensity: dyno.dynoFloat(params.intensity),
         waveFrequency: dyno.dynoFloat(params.waveFrequency),
         waveAmplitute: dyno.dynoFloat(params.waveAmplitute),
