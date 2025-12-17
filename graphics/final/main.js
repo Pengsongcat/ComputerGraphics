@@ -125,12 +125,8 @@ function DynoShader(splatMesh, params, T) {
 
           float d = distance(pos, ${inputs.hitPoint});
           float radius = 4.;
-
           float influence = smoothstep(radius, 0.0, d);
-
-          float localScale = mix(${inputs.scaleBlend}, 1.0, influence);
-
-          ${outputs.gsplat}.scales = scales * localScale;
+          ${outputs.gsplat}.scales = scales * mix(${inputs.scaleBlend}, 1.0, influence);
         `),
       });
       
