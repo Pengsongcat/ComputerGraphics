@@ -3,7 +3,24 @@ import { SparkControls, SplatMesh, dyno } from "@sparkjsdev/spark";
 import GUI from "lil-gui";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+// Mouse Raycaster
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
 
+window.addEventListener("mousemove", (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+});
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+const hitPoint = dyno.dynoVec3(new THREE.Vector3(999, 999, 999));
+
+// Scene setup
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(
@@ -18,12 +35,31 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+// load collider.glb
+const gltfLoader = new GLTFLoader();
+let colliderMeshes = [];
+
+gltfLoader.load("./spz/collider.glb", (gltf) => {
+  const collider = gltf.scene;
+
+  collider.traverse((child) => {
+    if (child.isMesh) {
+      child.material = new THREE.MeshBasicMaterial({
+        wireframe: true,
+        visible: false
+      });
+      colliderMeshes.push(child);
+    }
+  });
+
+  collider.position.copy(splatMesh.position);
+  collider.scale.copy(splatMesh.scale);
+
+  scene.add(collider);
 });
 
+
+// Dyno Shader
 function DynoShader(splatMesh, params, animateT) {
   splatMesh.objectModifier = dyno.dynoBlock(
     { gsplat: dyno.Gsplat },
@@ -38,8 +74,10 @@ function DynoShader(splatMesh, params, animateT) {
           waveFrequency: "float",
           waveAmplitute: "float",
           waveSpeed: "float",
-          scaleBlend: "float"
+          scaleBlend: "float",
+          hitPoint: "vec3"  
         },
+
         outTypes: { gsplat: dyno.Gsplat },
 
         globals: () => [dyno.unindent(`
@@ -87,8 +125,20 @@ function DynoShader(splatMesh, params, animateT) {
 
           ${outputs.gsplat}.center = pos + offset;
 
-          float sb = max(${inputs.scaleBlend}, 0.05);
-          ${outputs.gsplat}.scales = scales * sb;
+          float d = distance(pos, ${inputs.hitPoint});
+          float radius = 4.;
+
+          float influence = smoothstep(radius, 0.0, d);
+
+          float localScale = mix(
+            ${inputs.scaleBlend}, // outside
+            1.0,                 // center
+            influence
+          );
+
+          ${outputs.gsplat}.scales = scales * localScale;
+
+
         `),
       });
       
@@ -101,6 +151,7 @@ function DynoShader(splatMesh, params, animateT) {
         waveAmplitute: dyno.dynoFloat(params.waveAmplitute),
         waveSpeed: dyno.dynoFloat(params.waveSpeed),
         scaleBlend: dyno.dynoFloat(params.scaleBlend),
+        hitPoint: hitPoint   
       }).gsplat;
 
       return { gsplat };
@@ -125,7 +176,7 @@ const params = {
   waveFrequency: 0.8,
   waveAmplitute: 0.1,
   waveSpeed: 0.5,
-  scaleBlend: 0.5
+  scaleBlend: 0.2
 };
 
 // GUI
@@ -142,10 +193,31 @@ DynoShader(splatMesh, params, animateT);
 
 // Animation loop
 let t = 0;
+
+// Hit Marker For debugging
+// const hitMarker = new THREE.Mesh(
+//   new THREE.SphereGeometry(0.03, 16, 16),
+//   new THREE.MeshBasicMaterial({ color: 0xff0000 })
+// );
+// scene.add(hitMarker);
+
 renderer.setAnimationLoop(() => {
   t += 1 / 60;
   animateT.value = t;
   splatMesh.updateVersion();
+
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(colliderMeshes, true);
+
+  if (hits.length > 0) {
+    hitPoint.value.copy(hits[0].point);
+    // hitMarker.position.copy(hitPoint);
+    // hitMarker.visible = true;
+    // console.log("Hit at: ", hitPoint.value);
+  } 
+  else {
+    hitPoint.value.set(999, 999, 999);
+  }
 
   controls.update(camera);
   renderer.render(scene, camera);
