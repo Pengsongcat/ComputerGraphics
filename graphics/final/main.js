@@ -186,7 +186,6 @@ function loadCollider(url) {
   });
 }
 
-
 // Controls
 const controls = new SparkControls({ canvas: renderer.domElement });
 
@@ -212,11 +211,11 @@ gui.add(debugParams, "splat", Object.keys(splatOptions))
     loadSplat(splatOptions[name]);
   });
 
-gui.add(params, "intensity", 0, 2, 0.01);
-gui.add(params, "waveFrequency", 0.1, 5, 0.1);
-gui.add(params, "waveAmplitute", 0, 0.3, 0.01);
-gui.add(params, "waveSpeed", 0, 2, 0.01);
-gui.add(params, "scaleBlend", 0, 1, 0.01);
+gui.add(params, "intensity", 0, 2, 0.01).onChange(() => splatMesh.updateGenerator());
+gui.add(params, "waveFrequency", 0.1, 5, 0.1).onChange(() => splatMesh.updateGenerator());
+gui.add(params, "waveAmplitute", 0, 0.3, 0.01).onChange(() => splatMesh.updateGenerator());
+gui.add(params, "waveSpeed", 0, 2, 0.01).onChange(() => splatMesh.updateGenerator());
+gui.add(params, "scaleBlend", 0, 1, 0.01).onChange(() => splatMesh.updateGenerator());
 
 gui.add(debugParams, "showCollider")
   .name("Show Collider")
