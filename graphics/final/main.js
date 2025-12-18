@@ -3,6 +3,12 @@ import { SparkControls, SplatMesh, dyno } from "@sparkjsdev/spark";
 import GUI from "lil-gui";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
 // Mouse Raycaster
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -10,12 +16,6 @@ const mouse = new THREE.Vector2();
 window.addEventListener("mousemove", (event) => {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-});
-
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
 const hitPoint = dyno.dynoVec3(new THREE.Vector3(999, 999, 999));
@@ -39,15 +39,15 @@ document.body.appendChild(renderer.domElement);
 const gltfLoader = new GLTFLoader();
 let colliderMeshes = [];
 
-gltfLoader.load("./spz/collider.glb", (gltf) => {
+gltfLoader.load("./spz/LordOfTheRingsCollider.glb", (gltf) => {
   const collider = gltf.scene;
 
   collider.traverse((child) => {
     if (child.isMesh) {
       child.material = new THREE.MeshBasicMaterial({
-        wireframe: true,
-        visible: false
+        wireframe: true
       });
+      child.visible = false; 
       colliderMeshes.push(child);
     }
   });
@@ -167,6 +167,10 @@ const params = {
   scaleBlend: 0.2
 };
 
+const debugParams = {
+  showCollider: false
+};
+
 // GUI
 const gui = new GUI();
 gui.add(params, "intensity", 0, 2, 0.01).onChange(() => splatMesh.updateGenerator());
@@ -174,6 +178,9 @@ gui.add(params, "waveFrequency", 0.1, 5, 0.1).onChange(() => splatMesh.updateGen
 gui.add(params, "waveAmplitute", 0, 0.3, 0.01).onChange(() => splatMesh.updateGenerator());
 gui.add(params, "waveSpeed", 0, 2, 0.01).onChange(() => splatMesh.updateGenerator());
 gui.add(params, "scaleBlend", 0, 1, 0.01).onChange(() => splatMesh.updateGenerator());
+gui.add(debugParams, "showCollider").name("Show Collider").onChange((v) => {
+    colliderMeshes.forEach((m) => {m.visible = v;});});
+
 
 // Shader
 const animateT = dyno.dynoFloat(0);
