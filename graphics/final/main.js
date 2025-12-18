@@ -3,24 +3,7 @@ import { SparkControls, SplatMesh, dyno } from "@sparkjsdev/spark";
 import GUI from "lil-gui";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// Mouse Raycaster
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-
-window.addEventListener("mousemove", (event) => {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-});
-
-const hitPoint = dyno.dynoVec3(new THREE.Vector3(999, 999, 999));
-
-// Scene setup
+// Basic setup
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(
@@ -35,32 +18,32 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// load collider.glb
-const gltfLoader = new GLTFLoader();
-let colliderMeshes = [];
-
-gltfLoader.load("./spz/LordOfTheRingsCollider.glb", (gltf) => {
-  const collider = gltf.scene;
-
-  collider.traverse((child) => {
-    if (child.isMesh) {
-      child.material = new THREE.MeshBasicMaterial({
-        wireframe: true
-      });
-      child.visible = false; 
-      colliderMeshes.push(child);
-    }
-  });
-
-  collider.position.copy(splatMesh.position);
-  collider.scale.copy(splatMesh.scale);
-
-  scene.add(collider);
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// Mouse raycaster
 
-// Dyno Shader
-function DynoShader(splatMesh, params, T) {
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+window.addEventListener("mousemove", (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+});
+
+const hitPoint = dyno.dynoVec3(new THREE.Vector3(999, 999, 999));
+
+// Collider
+const gltfLoader = new GLTFLoader();
+const colliderGroup = new THREE.Group();
+scene.add(colliderGroup);
+let colliderMeshes = [];
+
+// Dyno shader
+function applyDynoShader(splatMesh, params, T) {
   splatMesh.objectModifier = dyno.dynoBlock(
     { gsplat: dyno.Gsplat },
     { gsplat: dyno.Gsplat },
@@ -75,9 +58,8 @@ function DynoShader(splatMesh, params, T) {
           waveAmplitute: "float",
           waveSpeed: "float",
           scaleBlend: "float",
-          hitPoint: "vec3"  
+          hitPoint: "vec3"
         },
-
         outTypes: { gsplat: dyno.Gsplat },
 
         globals: () => [dyno.unindent(`
@@ -116,20 +98,21 @@ function DynoShader(splatMesh, params, T) {
 
           vec3 pos    = ${inputs.gsplat}.center;
           vec3 scales = ${inputs.gsplat}.scales;
-          float t     = ${inputs.t};
 
-          vec3 offset = noise(pos * ${inputs.waveFrequency} + t * ${inputs.waveSpeed})
-                        * ${inputs.waveAmplitute} * ${inputs.intensity};
+          vec3 offset =
+            noise(pos * ${inputs.waveFrequency} + ${inputs.t} * ${inputs.waveSpeed})
+            * ${inputs.waveAmplitute} * ${inputs.intensity};
 
           ${outputs.gsplat}.center = pos + offset;
 
           float d = distance(pos, ${inputs.hitPoint});
-          float radius = 4.;
+          float radius = 4.0;
           float influence = smoothstep(radius, 0.0, d);
-          ${outputs.gsplat}.scales = scales * mix(${inputs.scaleBlend}, 1.0, influence);
+
+          ${outputs.gsplat}.scales =
+            scales * mix(${inputs.scaleBlend}, 1.0, influence);
         `),
       });
-      
 
       gsplat = d.apply({
         gsplat,
@@ -139,7 +122,7 @@ function DynoShader(splatMesh, params, T) {
         waveAmplitute: dyno.dynoFloat(params.waveAmplitute),
         waveSpeed: dyno.dynoFloat(params.waveSpeed),
         scaleBlend: dyno.dynoFloat(params.scaleBlend),
-        hitPoint: hitPoint   
+        hitPoint
       }).gsplat;
 
       return { gsplat };
@@ -147,18 +130,67 @@ function DynoShader(splatMesh, params, T) {
   );
 }
 
-// Spz SplatMesh
-const splatMesh = new SplatMesh({
-  url: "./spz/LordOfTheRings.spz"
-});
-splatMesh.position.set(0, 0, -1.5);
-splatMesh.scale.set(0.5, 0.5, 0.5);
-scene.add(splatMesh);
+// choose Splat 
+const splatOptions = {
+  "Lord of the Rings": {
+    splat: "./spz/LordOfTheRings.spz",
+    collider: "./spz/LordOfTheRingsCollider.glb"
+  },
+  "Hogwards": {
+    splat: "./spz/Hogwards.spz",
+    collider: "./spz/HogwardsCollider.glb"
+  },
+  "CyberPunk Bar": {
+    splat: "./spz/Bar.spz",
+    collider: "./spz/BarCollider.glb"
+  }
+};
 
-// SparkControls
+// Load splat
+let splatMesh = null;
+
+function loadSplat(option) {
+  if (splatMesh) scene.remove(splatMesh);
+
+
+  splatMesh = new SplatMesh({ url: option.splat });
+  splatMesh.position.set(0, 0, -1.5);
+  splatMesh.scale.set(0.5, 0.5, 0.5);
+  scene.add(splatMesh);
+
+  applyDynoShader(splatMesh, params, animateT);
+
+  loadCollider(option.collider);
+}
+
+// Load collider
+function loadCollider(url) {
+  colliderMeshes.length = 0;
+  colliderGroup.clear();
+
+  gltfLoader.load(url, (gltf) => {
+    gltf.scene.traverse((child) => {
+      if (child.isMesh) {
+        child.material = new THREE.MeshBasicMaterial({
+          wireframe: true
+        });
+        child.visible = debugParams.showCollider;
+        colliderMeshes.push(child);
+      }
+    });
+
+    colliderGroup.add(gltf.scene);
+
+    colliderGroup.position.copy(splatMesh.position);
+    colliderGroup.scale.copy(splatMesh.scale);
+  });
+}
+
+
+// Controls
 const controls = new SparkControls({ canvas: renderer.domElement });
 
-// Parameters
+// GUI
 const params = {
   intensity: 0.6,
   waveFrequency: 0.8,
@@ -168,53 +200,51 @@ const params = {
 };
 
 const debugParams = {
+  splat: "Lord of the Rings",
   showCollider: false
 };
 
-// GUI
 const gui = new GUI();
-gui.add(params, "intensity", 0, 2, 0.01).onChange(() => splatMesh.updateGenerator());
-gui.add(params, "waveFrequency", 0.1, 5, 0.1).onChange(() => splatMesh.updateGenerator());
-gui.add(params, "waveAmplitute", 0, 0.3, 0.01).onChange(() => splatMesh.updateGenerator());
-gui.add(params, "waveSpeed", 0, 2, 0.01).onChange(() => splatMesh.updateGenerator());
-gui.add(params, "scaleBlend", 0, 1, 0.01).onChange(() => splatMesh.updateGenerator());
-gui.add(debugParams, "showCollider").name("Show Collider").onChange((v) => {
-    colliderMeshes.forEach((m) => {m.visible = v;});});
 
+gui.add(debugParams, "splat", Object.keys(splatOptions))
+  .name("Splat")
+  .onChange((name) => {
+    loadSplat(splatOptions[name]);
+  });
 
-// Shader
+gui.add(params, "intensity", 0, 2, 0.01);
+gui.add(params, "waveFrequency", 0.1, 5, 0.1);
+gui.add(params, "waveAmplitute", 0, 0.3, 0.01);
+gui.add(params, "waveSpeed", 0, 2, 0.01);
+gui.add(params, "scaleBlend", 0, 1, 0.01);
+
+gui.add(debugParams, "showCollider")
+  .name("Show Collider")
+  .onChange((v) => {
+    colliderMeshes.forEach((m) => (m.visible = v));
+  });
+
+// Initialization
 const animateT = dyno.dynoFloat(0);
-DynoShader(splatMesh, params, animateT);
+loadSplat(splatOptions[debugParams.splat]);
 
 // Animation loop
 let t = 0;
-
-// Hit Marker For debugging
-// const hitMarker = new THREE.Mesh(
-//   new THREE.SphereGeometry(0.03, 16, 16),
-//   new THREE.MeshBasicMaterial({ color: 0xff0000 })
-// );
-// scene.add(hitMarker);
-
 renderer.setAnimationLoop(() => {
   t += 1 / 60;
   animateT.value = t;
-  splatMesh.updateVersion();
+
+  if (splatMesh) splatMesh.updateVersion();
 
   raycaster.setFromCamera(mouse, camera);
   const hits = raycaster.intersectObjects(colliderMeshes, true);
 
   if (hits.length > 0) {
     hitPoint.value.copy(hits[0].point);
-    // hitMarker.position.copy(hitPoint);
-    // hitMarker.visible = true;
-    // console.log("Hit at: ", hitPoint.value);
-  } 
-  else {
+  } else {
     hitPoint.value.set(999, 999, 999);
   }
 
   controls.update(camera);
   renderer.render(scene, camera);
 });
-
